@@ -33,7 +33,7 @@ function convertToGrayscale(img) {
 }
 
 function preload() {
-  grundriss = loadImage('images/hagemann.jpg', (img) => {
+  grundriss = loadImage('images/Hagemann.jpg', (img) => {
     grundriss = convertToGrayscale(img);
   });
 }
