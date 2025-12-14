@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>FOR3 Prototyp</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="controls">
+    <!-- Status Buttons -->
+    <button id="btnStatusIdle">Status Idle</button>
+    <button id="btnStatusActive">Status Active</button>
+
+    <div id="pumpenWrapper">
+        <button id="btnStatusPumpen">Status Pumpen</button>
+        <div class="progressBar"><div id="pumpenProgress"></div></div>
+    </div>
+
+    <div id="turbinierenWrapper">
+        <button id="btnStatusTurbinieren">Status Turbinieren</button>
+        <div class="progressBar"><div id="turbinierenProgress"></div></div>
+    </div>
+</div>
+
+<div id="overlayButtons">
+    <!-- Overlay Buttons -->
+    <button id="btnAllgemein">Allgemein</button>
+    <button id="btnPumpen">Pumpen</button>
+    <button id="btnTurbinieren">Turbinieren</button>
+    <button id="btnHoehenlinien">Höhenlinien</button>
+    <button id="btnGewaesser">Gewässer</button>
+    <button id="btnStrassen">Straßen</button>
+    <button id="btnFluesse">Flüsse</button>
+    <button id="btnGruenflaechen">Grünflächen</button>
+    <button id="btnHaeuser">Häuser</button>
+    <button id="btnKraftwerke">Kraftwerke</button>
+</div>
+
+<!-- Reset Button -->
+<button id="btnReset">Reset</button>
+
+<script src="p5.min.js"></script>
+<script src="sketch.js"></script>
+</body>
+</html>
