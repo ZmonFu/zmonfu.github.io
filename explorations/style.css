@@ -1,0 +1,38 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+main {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+canvas {
+  display: block;
+}
+
+video {
+  transform: scaleX(-1);
+}
+
+html.cursor-hidden {
+  cursor: none;
+}
+
+html.cursor-hidden canvas {
+  cursor: none;
+}
+
+html.cursor-hidden,
+html.cursor-hidden * {
+  cursor: none !important;
+}
