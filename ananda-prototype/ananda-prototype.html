@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ananda · Mid-Fi Prototype</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#b0b0b0;font-family:'DM Sans',system-ui,sans-serif;}
+button,select{font-family:inherit;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:#aaa;border-radius:4px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState } = React;
+
+
+const BG="#CECECE", HL="#EAFF03", CC="#7776BC", RC="#310959", WH="#FFFFFF";
+
+/* ── DATA ───────────────────────────────────────────────────────────────── */
+const NORA_TASKS = [
+  {id:"nt0", label:"Treffpunkt öffnen & bereitstellen", type:"retailer",  karma:0,  immediate:false, assignee:"Händler K"},
+  {id:"nt1", label:"Teilnahme",                         type:"member",    karma:5,  immediate:false, assignee:"Nora"},
+  {id:"nt4", label:"Run bewerben",                      type:"community", karma:5,  immediate:true,  assignee:null},
+  {id:"nt3", label:"Pacewatcher",                       type:"community", karma:5,  immediate:false, assignee:null},
+  {id:"nt2", label:"Route planen",                      type:"community", karma:10, immediate:false, assignee:"Nora"},
+  {id:"nt5", label:"Aufwärmen leiten",                  type:"community", karma:10, immediate:false, assignee:null},
+];
+
+const TMPLS_KUNO = [
+  {id:"tt0", label:"Treffpunkt öffnen & bereitstellen", karma:0,  def:"self",      retailer:true},
+  {id:"tt_a",label:"After-Run Verpflegung",             karma:5,  def:"community", retailer:false},
+  {id:"tt1", label:"Route planen",                      karma:10, def:"community", retailer:false},
+  {id:"tt2", label:"Aufwärmen leiten",                  karma:10, def:"community", retailer:false},
+  {id:"tt3", label:"Pacewatcher",                       karma:5,  def:"community", retailer:false},
+  {id:"tt4", label:"Run bewerben",                      karma:5,  def:"community", immediate:true, retailer:false},
+];
+
+const TMPLS_A = [
+  {id:"ta1", label:"Route planen",    karma:10, def:"community"},
+  {id:"ta2", label:"Aufwärmen leiten",karma:10, def:"community"},
+  {id:"ta3", label:"Pacewatcher",     karma:5,  def:"community"},
+  {id:"ta4", label:"Run bewerben",    karma:5,  def:"community", immediate:true},
+];
+
+// Shared events — same for all personas
+const EVENTS = [
+  {id:"e1", title:"Dienstags-Laufrunde Dornbirn", sport:"Laufen",
+   location:"Händler K, Dornbirn", date:"Di, 14.04.", time:"18:30",
+   distance:"~8 km", pace:"~5:30–6:00 min/km", character:"Flach",
+   recurring:"Jeden Dienstag", retailer:true, participants:14,
+   desc:"Gemeinsame Abendrunde ab dem Laden. Richtwert 8 km, flach. Die Route plant eine Person aus der Community."},
+  {id:"e2", title:"Bike & Coffee Feldkirch", sport:"Gravel",
+   location:"Händler K, Feldkirch", date:"Sa, 19.04.", time:"09:00",
+   distance:"~35–40 km", pace:"~20–24 km/h", character:"Undulierend",
+   recurring:"Jeden Samstag", retailer:true, participants:9,
+   desc:"Samstagmorgen-Gravel mit Kaffeestopp. Route und Tempo werden vor Ort abgestimmt."},
+  {id:"e3", title:"Gravel Tour Bregenzerwald", sport:"Gravel",
+   location:"Händler K, Dornbirn", date:"So, 20.04.", time:"09:00",
+   distance:"~50 km", pace:"~22–26 km/h", character:"Bergig",
+   recurring:"Einmalig", retailer:true, participants:8,
+   desc:"Tagestour in den Bregenzerwald. Mittleres Niveau, geführt."},
+  {id:"e4", title:"Mittwochslauf Community A", sport:"Laufen",
+   location:"Treffpunkt offen", date:"Mi, 16.04.", time:"07:00",
+   distance:"~6–10 km", pace:"~6:00 min/km", character:"Flach",
+   recurring:"Monatlich", retailer:false, participants:8,
+   desc:"Offene Morgenlaufrunde, kein fixer Startpunkt."},
+];
+
+const A_EVENTS = [
+  {id:"a1", title:"Mittwochslauf Community A", sport:"Laufen", location:"Treffpunkt offen",
+   date:"Mi, 16.04.", time:"07:00", recurring:"Monatlich", retailer:false, participants:8,
+   desc:"Offene Morgenlaufrunde, kein fixer Startpunkt."},
+  {id:"a2", title:"Bike & Coffee Feldkirch", sport:"Gravel", location:"Händler K, Feldkirch",
+   date:"Sa, 19.04.", time:"09:00", recurring:"Jeden Samstag", retailer:true, participants:9,
+   desc:"Samstagmorgen-Gravel mit Kaffeestopp bei Händler K."},
+];
+
+// Monitoring data for Block 2 Kontrolle
+const K_TASKS_STATUS = [
+  {label:"Treffpunkt öffnen & bereitstellen", person:"Händler K", type:"retailer", done:true,  updated:"—"},
+  {label:"After-Run Verpflegung",             person:"Händler K", type:"retailer", done:true,  updated:"—"},
+  {label:"Route planen",                       person:null,        type:"community",done:false, updated:"—"},
+  {label:"Aufwärmen leiten",                   person:"Nora",      type:"community",done:true,  updated:"vor 2h"},
+  {label:"Pacewatcher",                        person:"Sarah",     type:"community",done:false, updated:"—"},
+  {label:"Run bewerben",                       person:"Max, Sara, +1", type:"community",done:true, updated:"vor 5h"},
+];
+
+/* ── ICONS ──────────────────────────────────────────────────────────────── */
+const Bell=({sz=18,c="#555"})=><svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>;
+const MsgI=({sz=16,c="#555"})=><svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>;
+// Combined notification+message icon: bell with chat bubble
+const NotifI=({sz=18,c="#555",badge=false})=>(
+  <div style={{position:"relative",display:"inline-flex",alignItems:"center",justifyContent:"center"}}>
+    <svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+  </div>
+);
+const GearI=({sz=16,c="#555"})=><svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>;
+const ChevD=({sz=13,c="#888"})=><svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>;
+const EditI=({sz=13,c="#555"})=><svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
+const CamI=({sz=28,c="rgba(255,255,255,0.3)"})=><svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>;
+const StarF=({sz=12})=><svg width={sz} height={sz} viewBox="0 0 24 24" fill={HL} stroke={HL} strokeWidth="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
+const StarE=({sz=12})=><svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke="#ddd" strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
+const HeartF=({sz=16,c=RC})=><svg width={sz} height={sz} viewBox="0 0 24 24" fill={c} stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>;
+const HeartO=({sz=16,c="#bbb"})=><svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>;
+
+// Badge icons
+const RunI=({sz=22,c="#111"})=><svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="13" cy="4" r="2"/><path d="m5 20 4-10 2 4h4l3-4"/><path d="m16.8 13.2-1.8 5.3-3-2"/></svg>;
+const CalI=({sz=22,c="#111"})=><svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
+const PplI=({sz=22,c="#111"})=><svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>;
+const ChkI=({sz=22,c="#111"})=><svg width={sz} height={sz} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>;
+
+/* ── SHARED COMPONENTS ──────────────────────────────────────────────────── */
+const Sec=({label})=><p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#777",margin:"12px 0 6px"}}>{label}</p>;
+
+function Dropdown({value,onChange,options}){
+  return(
+    <div style={{position:"relative"}}>
+      <select value={value} onChange={e=>onChange(e.target.value)} style={{width:"100%",background:WH,border:"1px solid #ddd",borderRadius:10,padding:"10px 36px 10px 12px",fontSize:12,color:"#333",appearance:"none",cursor:"pointer",outline:"none",fontFamily:"inherit"}}>
+        {options.map(([v,l])=><option key={v} value={v}>{l}</option>)}
+      </select>
+      <div style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",pointerEvents:"none"}}><ChevD/></div>
+    </div>
+  );
+}
+
+function Stars({n=4,max=5,sz=12}){
+  return <div style={{display:"flex",gap:2}}>{Array.from({length:max},(_,i)=>i<n?<StarF key={i} sz={sz}/>:<StarE key={i} sz={sz}/>)}</div>;
+}
+
+function Barcode(){
+  const bars=[3,1,2,1,1,3,1,2,1,3,2,1,1,2,1,3,1,1,2,3,1,2,1,1,3,1,2,2,1,3];
+  return <div style={{display:"flex",gap:1.5,height:32,alignItems:"stretch"}}>{bars.map((w,i)=><div key={i} style={{width:w*2,background:"#111",borderRadius:1}}/>)}</div>;
+}
+
+function PhotoBanner({color,label,h=110}){
+  return(
+    <div style={{height:h,background:`linear-gradient(135deg,${color}cc,${color})`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",borderRadius:14,marginBottom:12}}>
+      <CamI sz={30}/><p style={{fontSize:10,color:"rgba(255,255,255,0.35)",margin:"6px 0 0"}}>Foto: {label}</p>
+    </div>
+  );
+}
+
+function ECard({e,faved,onFave,onClick}){
+  const openT=e.retailer?NORA_TASKS.filter(t=>!t.assignee&&t.type==="community").length:0;
+  return(
+    <button onClick={onClick} style={{width:"100%",textAlign:"left",background:WH,borderRadius:14,padding:"12px 14px",marginBottom:8,border:"none",cursor:"pointer",display:"block",boxSizing:"border-box",position:"relative"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+        <span style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:RC}}>{e.sport}</span>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          {e.retailer&&<span style={{background:HL,borderRadius:20,padding:"2px 8px",fontSize:10,fontWeight:700,color:"#111"}}>Karma</span>}
+          {onFave&&<button onClick={ev=>{ev.stopPropagation();onFave(e.id);}} style={{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex",alignItems:"center"}}>{faved?<HeartF sz={16}/>:<HeartO sz={16}/>}</button>}
+        </div>
+      </div>
+      <p style={{fontWeight:700,fontSize:15,color:"#111",margin:"0 0 3px",lineHeight:1.25}}>{e.title}</p>
+      <p style={{fontSize:11,color:"#888",margin:"0 0 6px"}}>{e.location}</p>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <span style={{fontSize:11,color:"#888"}}>{e.date} · {e.time} · {e.recurring}</span>
+        {openT>0&&<span style={{fontSize:10,fontWeight:700,background:"#111",color:HL,borderRadius:20,padding:"2px 8px"}}>{openT} offen</span>}
+      </div>
+    </button>
+  );
+}
+
+function AppHdr({persona,onBack,onFab,onNotif,notifBadge,canCreate=true,subLabel,onSubLabel,onInfo,onMsg}){
+  const P={nora:{name:"Nora",karma:145},kuno:{name:"Kuno",karma:null},angelina:{name:"Angelina",karma:312}};
+  const p=P[persona];
+  return(
+    <div style={{background:BG,padding:"10px 14px 6px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexShrink:0,position:"sticky",top:0,zIndex:10}}>
+      {onBack
+        ?<button onClick={onBack} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,lineHeight:1,color:"#111",fontWeight:300,padding:"2px 4px"}}>←</button>
+        :<div>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontWeight:700,fontSize:18,color:"#111",lineHeight:1}}>{p.name}</span>
+            {p.karma!=null&&<span style={{background:HL,borderRadius:20,padding:"1px 8px",fontSize:12,fontWeight:700,color:"#111"}}>{p.karma} Karma</span>}
+          </div>
+          {subLabel&&<button onClick={onSubLabel} style={{background:"none",border:"none",cursor:"pointer",padding:"2px 0 0",fontSize:11,color:persona==="kuno"?RC:CC,fontWeight:600,display:"block"}}>{subLabel} →</button>}
+        </div>
+      }
+      <div style={{display:"flex",gap:7,alignItems:"center",marginLeft:"auto"}}>
+        {canCreate&&persona!=="nora"&&<button onClick={onFab} style={{width:34,height:34,background:"#111",borderRadius:"50%",color:WH,fontSize:20,fontWeight:300,display:"flex",alignItems:"center",justifyContent:"center",border:"none",cursor:"pointer",flexShrink:0}}>+</button>}
+        {/* Combined notifications + messages */}
+        <button onClick={()=>onMsg?onMsg():onNotif&&onNotif()} style={{position:"relative",width:34,height:34,background:WH,border:"1px solid #ccc",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
+          <Bell sz={18}/>
+          {notifBadge&&<span style={{position:"absolute",top:-4,right:-4,width:15,height:15,background:HL,borderRadius:"50%",fontSize:8,fontWeight:700,color:"#111",display:"flex",alignItems:"center",justifyContent:"center"}}>{notifBadge}</span>}
+        </button>
+        {/* Gear / Einstellungen */}
+        <button onClick={()=>{}} style={{width:34,height:34,background:WH,border:"1px solid #ccc",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0}}>
+          <GearI sz={16}/>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EventDetailHdr({e}){
+  const PART_NAMES=["Nora","Max","Sara","Tom","Julia","Felix","Anna","Leo","Mia","Paul","Lena","Jonas","Eva","Kai","Lara","Tim"];
+  const n=Math.min(e.participants||6,PART_NAMES.length);
+  const shown=PART_NAMES.slice(0,Math.min(n,6));
+  const extra=n-shown.length;
+  const colors=["#7776BC","#310959","#888","#4a90d9","#e67e22","#27ae60","#c0392b","#8e44ad"];
+  return(
+    <div style={{margin:"8px 14px",background:WH,borderLeft:`4px solid ${RC}`,borderRadius:10,padding:"12px 12px"}}>
+      <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:RC,margin:"0 0 3px"}}>{e.sport}</p>
+      <p style={{fontWeight:700,fontSize:16,color:"#111",margin:"0 0 8px",lineHeight:1.25}}>{e.title}</p>
+      {[
+        [e.date+" · "+e.recurring,"Datum"],
+        [e.time+" Uhr","Uhrzeit"],
+        [e.location,"Ort"],
+        [(e.distance||"")+(e.pace?" · "+e.pace:"")+" · "+e.character,"Richtwerte"],
+      ].map(([val,lbl],i)=>(
+        <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:i<3?"1px solid #f2f2f2":"none"}}>
+          <p style={{fontSize:12,color:"#333",margin:0}}>{val}</p>
+          {lbl&&<p style={{fontSize:10,color:"#aaa",margin:0,alignSelf:"center"}}>{lbl}</p>}
+        </div>
+      ))}
+      {/* Participant avatars */}
+      <div style={{marginTop:10,paddingTop:8,borderTop:"1px solid #f2f2f2"}}>
+        <p style={{fontSize:10,color:"#aaa",margin:"0 0 7px",fontWeight:600}}>Teilnehmer:innen · {n}</p>
+        <div style={{display:"flex",alignItems:"center",gap:0}}>
+          {shown.map((name,i)=>(
+            <div key={name} title={name} style={{width:28,height:28,borderRadius:"50%",background:colors[i%colors.length],border:"2px solid #fff",marginRight:-6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:WH,flexShrink:0,zIndex:shown.length-i}}>
+              {name[0]}
+            </div>
+          ))}
+          {extra>0&&<div style={{width:28,height:28,borderRadius:"50%",background:"#bbb",border:"2px solid #fff",marginLeft:2,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,color:WH,flexShrink:0}}>+{extra}</div>}
+        </div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:7}}>
+          {shown.map((name,i)=>(
+            <span key={name} style={{fontSize:10,color:"#666"}}>{name}{i<shown.length-1?",":" "+( extra>0?`+${extra} weitere`:"")}</span>
+          ))}
+        </div>
+      </div>
+      <p style={{fontSize:11,color:RC,fontWeight:500,margin:"7px 0 0",lineHeight:1.5}}>{e.desc}</p>
+    </div>
+  );
+}
+
+/* ── MAIN COMPONENT ─────────────────────────────────────────────────────── */
+function AnandaPrototype(){
+  const[persona,setP]=useState("nora");
+  const[screen,setS]=useState("home");
+  const[block2v,setB2]=useState("A");    // Kontrolle variant for Block 2
+  const[kunoRec,setKR]=useState("weekly-tue");
+  const[kunoGroup,setKG]=useState([]);
+  const[ownersK,setOK]=useState(()=>{const o={};TMPLS_KUNO.forEach(t=>{o[t.id]=t.def;});return o;});
+  const[ownersA,setOA]=useState(()=>{const o={};TMPLS_A.forEach(t=>{o[t.id]=t.def;});return o;});
+  const[taskKarma,setTK]=useState(()=>{const k={};TMPLS_KUNO.forEach(t=>{k[t.id]=t.karma;});return k;});
+  const[dynK,setDynK]=useState(false);
+  const[bTaken,setBT]=useState(false);  // Run bewerben taken
+  const[aTaken,setAT]=useState(false);  // Aufwärmen taken
+  const[faved,setFaved]=useState({});
+  const[walletOpen,setWO]=useState(false);
+  const[aRecurring,setAR]=useState("monthly");
+  const[autoAssign,setAA]=useState("confirm_unknown");
+  const[bNotifShown,setBNS]=useState(false);
+  const[evtExpanded,setEE]=useState(false);
+  const[activeStep,setActiveStep]=useState(null);
+
+  const go=s=>{setS(s);};
+  const swP=p=>{setP(p);setS("home");setBT(false);setAT(false);setWO(false);setBNS(false);setEE(false);setActiveStep(null);};
+  const setBlock2=v=>{setB2(v);setBNS(false);};
+  const toggleOK=id=>setOK(p=>({...p,[id]:p[id]==="self"?"community":"self"}));
+  const toggleOA=id=>setOA(p=>({...p,[id]:p[id]==="self"?"community":"self"}));
+  const toggleG=v=>setKG(p=>p.includes(v)?p.filter(x=>x!==v):[...p,v]);
+  const adjKarma=(id,d)=>setTK(p=>({...p,[id]:Math.max(0,p[id]+d)}));
+  const toggleFave=id=>setFaved(p=>({...p,[id]:!p[id]}));
+
+  const ev=EVENTS[0];
+  const notifAct=()=>persona==="kuno"?go("k-request"):null;
+  const fabAct=()=>persona==="kuno"?go("k-create-1"):persona==="angelina"?go("a-create-1"):null;
+  const msgAct=()=>go("k-messages");
+  const infoAct=()=>go("info");
+
+  const aBot=["entdecken","shop-detail","community-detail"].includes(screen)?"entdecken"
+    :["profil","profil-k","profil-a","n-wallet","k-roi"].includes(screen)?"profil"
+    :["info","k-karma-info","n-karma-mid"].includes(screen)?"info"
+    :["k-home-after","a-home-ev1","a-home-ev2"].includes(screen)?"home"
+    :["k-manage","k-manage-b1","k-manage-b2","k-manage-c1","k-manage-c2"].includes(screen)?"home":"home";
+
+  const myTasks=[
+    {label:"Teilnahme",karma:5,immediate:false},
+    ...(bTaken?[{label:"Run bewerben",karma:5,immediate:true}]:[]),
+    ...(aTaken?[{label:"Aufwärmen leiten",karma:10,immediate:false}]:[]),
+  ];
+  const myTotal=myTasks.reduce((s,t)=>s+t.karma,0);
+
+  const STEPS={
+    nora:[
+      {id:"home",l:"Home",g:"1 · Grundstruktur"},
+      {id:"entdecken",l:"Entdecken",g:"1 · Grundstruktur"},
+      {id:"profil",l:"Profil",g:"1 · Grundstruktur"},
+      {id:"n-karma-mid",l:"Karma",g:"1 · Grundstruktur"},
+      {id:"n-event",l:"Event",g:"2 · Teilnehmen"},
+      {id:"n-joined",l:"Teilnehmen",g:"2 · Teilnehmen"},
+      {id:"n-karma-mid",l:"Karma",g:"2 · Teilnehmen"},
+      {id:"n-share",l:"Bewerben",g:"2 · Teilnehmen"},
+      {id:"n-bewerben-ok",l:"Gutschrift",g:"2 · Teilnehmen"},
+      {id:"n-joined",l:"Teilnehmen",g:"2 · Teilnehmen",alias:"n-joined2"},
+      {id:"n-warmup",l:"Aufwärmen",g:"2 · Teilnehmen"},
+      {id:"n-joined",l:"Teilnehmen",g:"2 · Teilnehmen",alias:"n-joined3"},
+      {id:"n-task-confirm",l:"Karma-Übersicht",g:"2 · Teilnehmen"},
+      {id:"n-karma-reward",l:"Karma Reward",g:"3 · Einlösen"},
+      {id:"profil",l:"Profil",g:"3 · Einlösen",alias:"profil2"},
+      {id:"n-wallet",l:"Karte",g:"3 · Einlösen"},
+    ],
+    kuno:[
+      {id:"home",l:"Home",g:"1 · Grundstruktur"},
+      {id:"entdecken",l:"Entdecken",g:"1 · Grundstruktur"},
+      {id:"shop-detail",l:"Händler-Detail",g:"1 · Grundstruktur"},
+      {id:"profil-k",l:"Profil",g:"1 · Grundstruktur"},
+      {id:"k-karma-info",l:"Karma",g:"1 · Grundstruktur"},
+      {id:"k-create-1",l:"Erstellen 1",g:"2 · Erstellen"},
+      {id:"k-create-2",l:"Erstellen 2",g:"2 · Erstellen"},
+      {id:"k-home-new",l:"Home",g:"2 · Erstellen",target:"k-home-after"},
+      {id:"profil-k",l:"Profil",g:"3 · Kontrolle",alias:"profil-k2"},
+      {id:"k-manage",l:"Kontrolle A Pull",g:"3 · Kontrolle"},
+      {id:"k-manage-b1",l:"Kontrolle B Push 1",g:"3 · Kontrolle"},
+      {id:"k-manage-b2",l:"Kontrolle B Push 2",g:"3 · Kontrolle"},
+      {id:"k-manage-c1",l:"Kontrolle C Back 1",g:"3 · Kontrolle"},
+      {id:"k-manage-c2",l:"Kontrolle C Back 2",g:"3 · Kontrolle"},
+      {id:"k-trust-2",l:"Einstellungen",g:"3 · Kontrolle"},
+      {id:"k-trust-1",l:"Vertrauen 1",g:"4 · Vertrauen"},
+      {id:"k-trust-lisa",l:"Vertrauen A Nora",g:"4 · Vertrauen"},
+      {id:"k-trust-tom",l:"Vertrauen B Tom",g:"4 · Vertrauen"},
+      {id:"home",l:"Home",g:"5 · Kooperation",alias:"home2",target:"home"},
+      {id:"k-request",l:"Anfrage",g:"5 · Kooperation"},
+      {id:"profil-k",l:"Profil",g:"6 · Messbarkeit",alias:"profil-k3"},
+      {id:"k-roi",l:"ROI",g:"6 · Messbarkeit"},
+    ],
+    angelina:[
+      // 1 · Grundstruktur — wie Kuno, aber community-detail statt shop-detail
+      {id:"home",l:"Home",g:"1 · Grundstruktur"},
+      {id:"entdecken",l:"Entdecken",g:"1 · Grundstruktur"},
+      {id:"community-detail",l:"Community-Detail",g:"1 · Grundstruktur"},
+      {id:"profil-a",l:"Profil",g:"1 · Grundstruktur"},
+      {id:"k-karma-info",l:"Karma",g:"1 · Grundstruktur"},
+      // 2 · Erstellen — unverändert
+      {id:"a-create-1",l:"Erstellen 1/2",g:"2 · Erstellen"},
+      {id:"a-create-2",l:"Erstellen 2/2",g:"2 · Erstellen"},
+      {id:"a-home-after1",l:"Home",g:"2 · Erstellen",target:"a-home-ev1"},
+      // 3 · Kontrolle A/B/C — identisch zu Kuno
+      {id:"profil-a",l:"Profil",g:"3 · Kontrolle",alias:"profil-a-k"},
+      {id:"k-manage",l:"Kontrolle A Pull",g:"3 · Kontrolle"},
+      {id:"k-manage-b1",l:"Kontrolle B Push 1",g:"3 · Kontrolle"},
+      {id:"k-manage-b2",l:"Kontrolle B Push 2",g:"3 · Kontrolle"},
+      {id:"k-manage-c1",l:"Kontrolle C Back 1",g:"3 · Kontrolle"},
+      {id:"k-manage-c2",l:"Kontrolle C Back 2",g:"3 · Kontrolle"},
+      {id:"k-trust-2",l:"Einstellungen",g:"3 · Kontrolle"},
+      // 4 · Vertrauen — identisch zu Kuno
+      {id:"k-trust-1",l:"Vertrauen 1",g:"4 · Vertrauen"},
+      {id:"k-trust-lisa",l:"Vertrauen A Nora",g:"4 · Vertrauen"},
+      {id:"k-trust-tom",l:"Vertrauen B Tom",g:"4 · Vertrauen"},
+      // 5 · Kooperation — Erstellen 2/2 nochmal, dann Kooperations-Strang
+      {id:"a-create-2",l:"Erstellen 2/2",g:"5 · Kooperation",alias:"a-create-2b"},
+      {id:"a-coop",l:"Kooperation 1/2",g:"5 · Kooperation"},
+      {id:"a-invite",l:"Händler",g:"5 · Kooperation"},
+      {id:"a-coop-tasks",l:"Kooperation Tasks",g:"5 · Kooperation"},
+      {id:"a-home-after2",l:"Home",g:"5 · Kooperation",target:"a-home-ev2"},
+    ],
+  };
+  const steps=STEPS[persona];
+  const currStep=steps.findIndex(s=>!s.target&&!s.alias&&s.id===screen);
+
+  const NAV=[
+    {id:"home",label:"Home",fn:()=>go("home")},
+    {id:"entdecken",label:"Entdecken",fn:()=>go("entdecken")},
+    {id:"profil",label:"Profil",fn:()=>persona==="kuno"?go("profil-k"):persona==="angelina"?go("profil-a"):go("profil")},
+    {id:"info",label:"a",fn:()=>go("info")},
+  ];
+
+  function renderContent(){
+
+    /* INFO */
+    if(screen==="info") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona={persona} onBack={()=>go("home")} onNotif={notifAct} canCreate={false} onInfo={infoAct}/>
+        <div style={{padding:"12px 14px 100px"}}>
+          <p style={{fontWeight:700,fontSize:16,color:"#111",margin:"0 0 6px"}}>Was ist ananda?</p>
+          <p style={{fontSize:12,color:"#555",lineHeight:1.7,margin:"0 0 12px"}}>ananda verbindet lokale Sportler:innen, Sport-Communities und inhabergeführte Sportfachhändler — damit Sport im Ort sichtbar und erlebbar bleibt.</p>
+          <p style={{fontSize:12,color:"#555",lineHeight:1.7,margin:"0 0 14px"}}>Alle lokalen Sport-Events werden hier gebündelt. Wer mitmacht, Tasks übernimmt und andere unterstützt, sammelt Karmapunkte — ein Ausdruck sozialen Engagements, kein Bezahlsystem.</p>
+
+          <div style={{background:HL,borderRadius:14,padding:"14px",marginBottom:12}}>
+            <p style={{fontWeight:700,fontSize:13,color:"#111",margin:"0 0 8px"}}>Karma-Grundprinzip</p>
+            <p style={{fontSize:11,color:"#333",lineHeight:1.6,margin:"0 0 10px"}}>Karma aktiviert sich bei jedem Event — unabhängig von einer Händler-Kooperation. Wer mitmacht und hilft, bekommt Punkte. Bei Händler-Kooperationen gibt es zusätzliches Karma als Bonus.</p>
+            {[["1 Karma","= 0,50 € Rabatt bei teilnehmenden Händlern"],["Teilnahme","= +5 Karma (nach Event)"],["Run bewerben","= +5 Karma (sofort)"],["Aufwärmen / Route","= +10 Karma (nach Event)"],["Pacewatcher","= +5 Karma (nach Event)"]].map(([k,v],i,arr)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:i<arr.length-1?"1px solid rgba(0,0,0,0.08)":"none"}}>
+                <p style={{fontSize:12,fontWeight:600,color:"#111",margin:0}}>{k}</p>
+                <p style={{fontSize:11,color:"#333",margin:0,textAlign:"right",maxWidth:"55%"}}>{v}</p>
+              </div>
+            ))}
+          </div>
+
+          <div style={{background:WH,borderRadius:14,padding:"14px",marginBottom:10}}>
+            <p style={{fontWeight:700,fontSize:13,color:"#111",margin:"0 0 8px"}}>Warum ananda?</p>
+            <p style={{fontSize:12,color:"#555",lineHeight:1.7,margin:0}}>Lokale Sportfachhändler brauchen eine Daseinsrechtfertigung neben dem Onlinehandel. ananda macht ihre Räume zum sozialen Drittort — weil Sportler:innen einander (ananda) helfen und das im Laden sichtbar wird.</p>
+          </div>
+
+          {[["Wie erscheinen Events?","Händler und Community-Leads erstellen Events. Alle erscheinen im Feed — Events mit Händler-Kooperation zeigen ein Karma-Badge."],["Wann Karmapunkte?","Sofort: Run bewerben. Nach dem Event: alle anderen Tasks."],["Händler-Kooperation?","Erst wenn eine Community einen Raum braucht, entsteht eine Kooperation — und das Event gibt Bonus-Karma."]].map((f,i)=>(
+            <div key={i} style={{background:WH,borderRadius:10,padding:"10px 12px",marginBottom:6}}>
+              <p style={{fontWeight:600,fontSize:12,color:"#111",margin:"0 0 3px"}}>{f[0]}</p>
+              <p style={{fontSize:11,color:"#666",margin:0,lineHeight:1.5}}>{f[1]}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+
+    /* HOME */
+    if(screen==="home"||screen==="k-home-after"||screen==="a-home-ev1"||screen==="a-home-ev2"){
+      const isKunoAfter=screen==="k-home-after";
+      const isA1=screen==="a-home-ev1";
+      const isA2=screen==="a-home-ev2";
+      const subLbls={kuno:"Händler K",angelina:"Community A"};
+      const subRts={kuno:"shop-detail",angelina:"a-community"};
+
+      // Kuno sees placeholder events (no Dienstags-Laufrunde yet; created event visible after Block 1)
+      const KUNO_PLACEHOLDER=EVENTS.filter(e=>e.id!=="e1");
+      const KUNO_AFTER=[EVENTS.find(e=>e.id==="e1"),...KUNO_PLACEHOLDER];
+      const A1_EVENTS=[
+        {id:"a-new1",title:"Mittwochslauf Community A",sport:"Laufen",location:"Treffpunkt offen",date:"Mi, 16.04.",time:"07:00",recurring:"Monatlich",retailer:false,participants:0,tasks:[],assignees:{},desc:""},
+      ];
+      const A2_EVENTS=[
+        {id:"a-new2",title:"Bike & Coffee Feldkirch",sport:"Gravel",location:"Händler K, Feldkirch",date:"Sa, 19.04.",time:"09:00",recurring:"Jeden Samstag",retailer:true,participants:0,tasks:[],assignees:{},desc:""},
+        ...A1_EVENTS,
+      ];
+
+      const feedEvents = persona==="kuno"
+        ? (isKunoAfter ? KUNO_AFTER : KUNO_PLACEHOLDER)
+        : EVENTS;
+
+      const favedFirst=[...feedEvents.filter(e=>faved[e.id]),...feedEvents.filter(e=>!faved[e.id])];
+
+      return(
+        <div style={{flex:1,overflowY:"auto"}}>
+          <AppHdr persona={persona} onFab={fabAct} onNotif={notifAct} notifBadge={persona==="kuno"?"1":null} subLabel={subLbls[persona]} onSubLabel={()=>go(subRts[persona])} onInfo={infoAct} onMsg={persona!=="nora"?msgAct:null}/>
+          <div style={{margin:"4px 14px 8px",background:"#b8b8b8",borderRadius:10,padding:"9px 14px",fontSize:12,color:"#666"}}>Events in meiner Nähe suchen …</div>
+          <div style={{padding:"0 14px 100px"}}>
+            {Object.values(faved).some(Boolean)&&<Sec label="Favoriten"/>}
+            {favedFirst.filter(e=>faved[e.id]).map(e=><ECard key={e.id+"fav"} e={e} faved={true} onFave={toggleFave} onClick={()=>go("n-event")}/>)}
+            <Sec label="Aktuelle Events"/>
+            {favedFirst.filter(e=>!faved[e.id]).map(e=><ECard key={e.id} e={e} faved={!!faved[e.id]} onFave={toggleFave} onClick={()=>go("n-event")}/>)}
+          </div>
+        </div>
+      );
+    }
+
+    /* ENTDECKEN */
+    if(screen==="entdecken") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona={persona} onBack={()=>go("home")} onNotif={notifAct} notifBadge={persona==="kuno"?"1":null} canCreate={false} onInfo={infoAct}/>
+        <div style={{padding:"4px 14px 80px"}}>
+          {persona==="kuno"&&(
+            <div style={{background:WH,borderRadius:14,padding:"12px 14px",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{width:40,height:40,borderRadius:10,background:RC,display:"flex",alignItems:"center",justifyContent:"center",color:WH,fontWeight:700,fontSize:16}}>K</div>
+                <div><p style={{fontWeight:600,fontSize:13,color:"#111",margin:0}}>Händler K</p><p style={{fontSize:10,color:"#888",margin:"1px 0 0"}}>Öffentliches Profil</p></div>
+              </div>
+              <button onClick={()=>go("shop-detail")} style={{background:"#f5f5f5",border:"1px solid #ddd",borderRadius:8,padding:"6px 10px",fontSize:11,color:"#555",cursor:"pointer",display:"flex",alignItems:"center",gap:4}}><EditI sz={12}/> Bearbeiten</button>
+            </div>
+          )}
+          {persona==="angelina"&&(
+            <div style={{background:WH,borderRadius:14,padding:"12px 14px",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{width:40,height:40,borderRadius:10,background:CC,display:"flex",alignItems:"center",justifyContent:"center",color:WH,fontWeight:700,fontSize:16}}>A</div>
+                <div><p style={{fontWeight:600,fontSize:13,color:"#111",margin:0}}>Community A</p><p style={{fontSize:10,color:"#888",margin:"1px 0 0"}}>Deine Community</p></div>
+              </div>
+              <button onClick={()=>go("a-community")} style={{background:"#f5f5f5",border:"1px solid #ddd",borderRadius:8,padding:"6px 10px",fontSize:11,color:"#555",cursor:"pointer",display:"flex",alignItems:"center",gap:4}}><EditI sz={12}/> Bearbeiten</button>
+            </div>
+          )}
+          <Sec label="Händler:innen"/>
+          {[{name:"Händler K",loc:"Dornbirn",ev:12,karma:840,hrs:"Mo–Fr 9–18, Sa 9–13"},{name:"Händler A",loc:"Bregenz",ev:7,karma:360,hrs:"Mo–Sa 9–18"},{name:"Händler B",loc:"Hard",ev:4,karma:180,hrs:"Di–Sa 10–17"}].map(s=>(
+            <button key={s.name} onClick={()=>go("shop-detail")} style={{width:"100%",textAlign:"left",background:WH,borderRadius:14,padding:"12px 14px",marginBottom:8,border:"none",cursor:"pointer",boxSizing:"border-box",display:"flex",justifyContent:"space-between"}}>
+              <div><p style={{fontWeight:600,fontSize:13,color:"#111",margin:0}}>{s.name}</p><p style={{fontSize:11,color:"#888",margin:"2px 0 2px"}}>{s.loc}</p><p style={{fontSize:10,color:"#aaa",margin:0}}>{s.hrs}</p></div>
+              <div style={{textAlign:"right",flexShrink:0}}><p style={{fontSize:11,color:"#aaa",margin:0}}>{s.ev} Events</p></div>
+            </button>
+          ))}
+          <Sec label="Community-Kooperationen"/>
+          {[{name:"Community A",mem:34,ev:18,fav:persona==="nora"},{name:"Community B",mem:27,ev:12},{name:"Community C",mem:19,ev:8}].map(c=>(
+            <button key={c.name} onClick={()=>go("community-detail")} style={{width:"100%",textAlign:"left",background:WH,borderRadius:14,padding:"12px 14px",marginBottom:8,border:`${c.fav?`2px solid ${CC}`:"1px solid #eee"}`,cursor:"pointer",boxSizing:"border-box",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div><p style={{fontWeight:600,fontSize:13,color:"#111",margin:0}}>{c.name}{c.fav&&<span style={{fontSize:9,color:CC,marginLeft:5,fontWeight:700}}>★ Favorit</span>}</p><p style={{fontSize:11,color:"#888",margin:"2px 0 0"}}>{c.mem} Mitglieder</p></div>
+              <p style={{fontSize:11,color:"#aaa",margin:0}}>{c.ev} Events</p>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+
+    /* SHOP DETAIL */
+    if(screen==="shop-detail") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona={persona} onBack={()=>go("entdecken")} onNotif={notifAct} canCreate={false} onInfo={infoAct}/>
+        <div style={{padding:"10px 14px 80px"}}>
+          <PhotoBanner color={RC} label="Händler K"/>
+          <p style={{fontWeight:700,fontSize:18,color:"#111",margin:"0 0 2px"}}>Händler K</p>
+          <p style={{fontSize:11,color:"#888",margin:"0 0 10px"}}>Marktstraße 12, Dornbirn · Mo–Fr 9–18, Sa 9–13</p>
+          <div style={{display:"flex",gap:16,padding:"10px 0",borderTop:"1px solid #bbb",borderBottom:"1px solid #bbb",marginBottom:10}}>
+            {[["147","Follower"],["12","Events"],["840","Karma vergeben"]].map(([v,l])=>(
+              <div key={l}><p style={{fontWeight:700,fontSize:16,color:"#111",margin:0}}>{v}</p><p style={{fontSize:9,color:"#888",margin:"1px 0 0"}}>{l}</p></div>
+            ))}
+          </div>
+          <Sec label="Über uns"/>
+          <p style={{fontSize:12,color:"#555",lineHeight:1.6,background:WH,borderRadius:10,padding:"10px 12px",margin:"0 0 8px"}}>Inhabergeführter Sportfachhandel in Dornbirn seit 1998. Beratung auf Augenhöhe, lokale Sportkultur und Verbindung mit der Community.</p>
+          <Sec label="Events"/>
+          {EVENTS.filter(e=>e.retailer).map((e,i)=>(
+            <div key={e.id} style={{background:WH,borderRadius:10,padding:"9px 12px",marginBottom:6,display:"flex",justifyContent:"space-between"}}>
+              <div><p style={{fontSize:12,fontWeight:500,color:"#111",margin:0}}>{e.title}</p><p style={{fontSize:10,color:"#888",margin:"2px 0 0"}}>{e.date} · {e.recurring}</p></div>
+              <span style={{fontSize:10,color:"#aaa",textTransform:"uppercase",fontWeight:600}}>{e.sport}</span>
+            </div>
+          ))}
+          <Sec label="Marken"/>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+            {["Salomon","Arc'teryx","On","Patagonia","Maap","Wahoo"].map(b=>(
+              <span key={b} style={{border:`1px solid ${RC}`,borderRadius:20,padding:"3px 10px",fontSize:11,color:RC,fontWeight:500}}>{b}</span>
+            ))}
+          </div>
+          <Sec label="Services"/>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {["Laufanalyse","Bike Fitting","Ski-Service","Reparatur"].map(s=>(
+              <span key={s} style={{border:"1px solid #ccc",borderRadius:20,padding:"3px 10px",fontSize:11,color:"#555"}}>{s}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+
+    /* COMMUNITY DETAIL */
+    if(screen==="community-detail") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona={persona} onBack={()=>go("entdecken")} onNotif={notifAct} canCreate={false} onInfo={infoAct}/>
+        <div style={{padding:"10px 14px 80px"}}>
+          <PhotoBanner color={CC} label="Community A"/>
+          <p style={{fontWeight:700,fontSize:18,color:"#111",margin:"0 0 2px"}}>Community A</p>
+          <p style={{fontSize:11,color:"#888",margin:"0 0 10px"}}>Community Lead: Max H. · Dornbirn</p>
+          <div style={{display:"flex",gap:16,padding:"10px 0",borderTop:"1px solid #bbb",borderBottom:"1px solid #bbb",marginBottom:10}}>
+            {[["34","Mitglieder"],["18","Events"]].map(([v,l])=>(
+              <div key={l}><p style={{fontWeight:700,fontSize:16,color:"#111",margin:0}}>{v}</p><p style={{fontSize:9,color:"#888",margin:"1px 0 0"}}>{l}</p></div>
+            ))}
+          </div>
+          <p style={{fontSize:12,color:"#555",lineHeight:1.6,background:WH,borderRadius:10,padding:"10px 12px",margin:"0 0 8px"}}>Laufgruppe aus Dornbirn — alle Niveaus willkommen. Ziel: regelmäßig gemeinsam draußen sein, ohne Vereinsformular.</p>
+          <Sec label="Sportarten"/>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+            {["Laufen","Gravel","Trailrunning"].map(s=>(
+              <span key={s} style={{border:`1px solid ${CC}`,borderRadius:20,padding:"3px 10px",fontSize:11,color:CC,fontWeight:500}}>{s}</span>
+            ))}
+          </div>
+          <Sec label="Vergangene Events"/>
+          {EVENTS.map((e,i)=>(
+            <div key={e.id} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:i<EVENTS.length-1?"1px solid #ccc":"none"}}>
+              <p style={{fontSize:12,color:"#111",margin:0}}>{e.title}</p><span style={{fontSize:11,color:"#aaa"}}>{e.date}</span>
+            </div>
+          ))}
+          <div style={{marginTop:10}}>
+            <button style={{width:"100%",background:persona==="nora"?"#eee":CC,border:"none",borderRadius:10,padding:"9px 0",fontSize:12,fontWeight:600,color:persona==="nora"?"#888":WH,cursor:"pointer"}}>
+              {persona==="nora"?"★ Favorisiert":"Folgen"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+
+    /* NORA: EVENT */
+    if(screen==="n-event") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="nora" onBack={()=>go("home")} onNotif={()=>{}} canCreate={false} onInfo={infoAct}/>
+        <EventDetailHdr e={ev}/>
+        <div style={{padding:"0 14px 20px"}}>
+          <button onClick={()=>go("n-joined")} style={{width:"100%",background:"#111",color:WH,fontWeight:600,fontSize:14,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer",marginTop:8}}>Teilnehmen</button>
+        </div>
+      </div>
+    );
+
+    /* NORA: DABEI */
+    if(screen==="n-joined") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="nora" onBack={()=>go("n-event")} onNotif={()=>{}} canCreate={false} onInfo={infoAct} onMsg={msgAct}/>
+        {/* Collapsible event */}
+        <button onClick={()=>setEE(p=>!p)} style={{width:"100%",background:WH,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid #eee"}}>
+          <p style={{fontSize:12,color:"#888",margin:0,fontWeight:500}}>Event-Details {evtExpanded?"ausblenden":"anzeigen"}</p>
+          <span style={{fontSize:20,color:"#888",transform:evtExpanded?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0,lineHeight:1}}>⌄</span>
+        </button>
+        {evtExpanded&&<EventDetailHdr e={ev}/>}
+        <div style={{padding:"8px 14px 120px"}}>
+          <Sec label="Tasks"/>
+          <div style={{background:WH,borderRadius:14,overflow:"hidden",marginBottom:14}}>
+            {[
+              {label:"Treffpunkt öffnen & bereitstellen", person:"Händler K", karma:null,  taken:true,  action:null},
+              {label:"Teilnahme",                          person:"Nora",      karma:5,     taken:true,  action:null},
+              {label:"Run bewerben",                       person:bTaken?"Nora":null, karma:5, taken:bTaken, action:()=>go("n-share")},
+              {label:"Pacewatcher",                        person:null,        karma:5,     taken:false, action:()=>{}},
+              {label:"Route planen",                       person:"Lisa",      karma:10,    taken:true,  action:null},
+              {label:"Aufwärmen leiten",                   person:aTaken?"Nora":null, karma:10, taken:aTaken, action:()=>go("n-warmup")},
+            ].map((row,i,arr)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",padding:"10px 14px",borderBottom:i<arr.length-1?"1px solid #eee":"none",gap:8,
+                background:row.taken&&row.person==="Nora"?HL:"transparent"}}>
+                <p style={{flex:1,fontSize:13,color:row.person&&row.person!=="Nora"?"#999":"#111",fontWeight:row.person?400:500,margin:0}}>{row.label}</p>
+                {row.person&&<span style={{fontSize:11,color:"#777",fontWeight:500,flexShrink:0}}>{row.person}</span>}
+                {!row.person&&row.karma!=null&&<span style={{background:HL,borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:700,color:"#111",flexShrink:0}}>+{row.karma} Karma</span>}
+                {row.taken&&row.karma!=null&&<span style={{background:"rgba(0,0,0,0.06)",borderRadius:20,padding:"2px 8px",fontSize:10,color:"#666",flexShrink:0}}>+{row.karma} Karma</span>}
+                {!row.person&&row.action&&<button onClick={row.action} style={{background:"#111",border:"none",borderRadius:8,padding:"4px 10px",fontSize:12,color:WH,cursor:"pointer",fontWeight:600,flexShrink:0}}>→</button>}
+              </div>
+            ))}
+          </div>
+          <button onClick={()=>go("n-task-confirm")} style={{width:"100%",background:"#111",color:WH,fontWeight:600,fontSize:13,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer"}}>
+            Commitment einloggen
+          </button>
+        </div>
+      </div>
+    );
+
+    /* NORA: BEWERBEN (share) */
+    if(screen==="n-share") return(
+      <div style={{flex:1,overflowY:"auto",background:"#111",display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"12px 14px"}}><button onClick={()=>go("n-joined")} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:WH,padding:0}}>←</button></div>
+        <div style={{padding:"0 16px 24px",display:"flex",flexDirection:"column",alignItems:"center"}}>
+          <p style={{fontWeight:700,fontSize:15,color:WH,margin:"0 0 2px"}}>Run bewerben</p>
+          <p style={{fontSize:11,color:"#666",margin:"0 0 18px"}}>Sofort +5 Karma</p>
+          <div style={{width:"100%",borderRadius:18,overflow:"hidden",marginBottom:18,background:`linear-gradient(135deg,${RC},${CC})`}}>
+            <div style={{padding:"20px 18px 14px"}}>
+              <p style={{fontSize:9,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.1em",margin:"0 0 5px"}}>ananda · Vorarlberg</p>
+              <p style={{fontWeight:800,fontSize:20,color:WH,margin:"0 0 4px",lineHeight:1.2}}>{ev.title}</p>
+              <p style={{fontSize:12,color:"rgba(255,255,255,0.7)",margin:"0 0 2px"}}>{ev.date} · {ev.time}</p>
+              <p style={{fontSize:12,color:"rgba(255,255,255,0.7)",margin:0}}>{ev.location}</p>
+            </div>
+            <div style={{background:"rgba(0,0,0,0.2)",padding:"10px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:11,color:"rgba(255,255,255,0.5)"}}>{ev.sport} · {ev.recurring}</span>
+              <span style={{background:HL,borderRadius:20,padding:"2px 8px",fontSize:10,fontWeight:700,color:"#111"}}>ananda</span>
+            </div>
+          </div>
+          {[["Instagram","#E1306C"],["Facebook","#1877F2"],["WhatsApp","#25D366"],["Link kopieren","#333"]].map(([n,c])=>(
+            <button key={n} onClick={()=>{setBT(true);go("n-bewerben-ok");}} style={{width:"100%",background:c,color:WH,fontWeight:600,fontSize:13,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer",marginBottom:8}}>{n}</button>
+          ))}
+        </div>
+      </div>
+    );
+
+    /* NORA: KARMA INFO (Zwischenscreen) */
+    if(screen==="n-karma-mid") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="nora" onBack={()=>go("n-joined")} onNotif={()=>{}} canCreate={false} onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{padding:"12px 14px 100px"}}>
+          <p style={{fontWeight:700,fontSize:16,color:"#111",margin:"0 0 4px"}}>ananda</p>
+          <p style={{fontSize:12,color:"#666",lineHeight:1.6,margin:"0 0 14px"}}>Mit deiner Teilnahme und deinen Tasks sammelst du Karma — und unterstützt gleichzeitig den lokalen Laden als Treffpunkt.</p>
+          <div style={{background:HL,borderRadius:14,padding:"14px",marginBottom:12}}>
+            <p style={{fontWeight:700,fontSize:13,color:"#111",margin:"0 0 8px"}}>Karma-Grundprinzip</p>
+            {[["1 Karma","= 0,50 € Rabatt"],["Teilnahme","+ 5 Karma · nach Event"],["Run bewerben","+ 5 Karma · sofort"],["Pacewatcher","+ 5 Karma · nach Event"],["Route / Aufwärmen","+ 10 Karma · nach Event"]].map(([k,v],i,arr)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:i<arr.length-1?"1px solid rgba(0,0,0,0.08)":"none"}}>
+                <p style={{fontSize:12,fontWeight:600,color:"#111",margin:0}}>{k}</p>
+                <p style={{fontSize:11,color:"#333",margin:0}}>{v}</p>
+              </div>
+            ))}
+          </div>
+          {[["Wann werden Punkte gutgeschrieben?","Sofort: Run bewerben. Nach dem Event: alle anderen Tasks."],["Wo kann ich Karma einlösen?","Bei allen teilnehmenden Händlern — überall, wo du ananda siehst."],["Kann ich Karma verlieren?","Nein. Karma verfällt nicht und ist immer verfügbar."]].map((f,i)=>(
+            <div key={i} style={{background:WH,borderRadius:10,padding:"10px 12px",marginBottom:6}}>
+              <p style={{fontWeight:600,fontSize:12,color:"#111",margin:"0 0 3px"}}>{f[0]}</p>
+              <p style={{fontSize:11,color:"#666",margin:0,lineHeight:1.5}}>{f[1]}</p>
+            </div>
+          ))}
+          <button onClick={()=>go("n-share")} style={{width:"100%",marginTop:14,background:"#111",color:WH,fontWeight:600,fontSize:13,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer"}}>Weiter: Bewerben</button>
+        </div>
+      </div>
+    );
+
+    /* NORA: BEWERBEN OK - left-aligned, top */
+    if(screen==="n-bewerben-ok") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="nora" onBack={()=>go("n-share")} onNotif={()=>{}} canCreate={false} onInfo={infoAct}/>
+        <div style={{padding:"14px"}}>
+          <p style={{fontWeight:700,fontSize:18,color:"#111",margin:"0 0 4px"}}>Geteilt!</p>
+          <p style={{fontSize:12,color:"#888",margin:"0 0 16px"}}>Run bewerben · {ev.title} · {ev.date}</p>
+          <div style={{background:WH,borderRadius:14,overflow:"hidden",marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 14px",borderBottom:"1px solid #eee"}}>
+              <p style={{fontSize:13,color:"#111",margin:0}}>Run bewerben</p>
+              <span style={{fontSize:12,fontWeight:700,color:"#111"}}>+5</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"11px 14px",background:"#fafafa"}}>
+              <p style={{fontWeight:700,fontSize:13,color:"#111",margin:0}}>Sofort gutgeschrieben</p>
+              <span style={{fontSize:14,fontWeight:900,color:"#111"}}>+5 Karma</span>
+            </div>
+          </div>
+          <button onClick={()=>go("n-joined")} style={{width:"100%",background:HL,color:"#111",fontWeight:800,fontSize:16,padding:"16px 0",borderRadius:14,border:"none",cursor:"pointer"}}>
+            +5 Karmapunkte gesammelt
+          </button>
+        </div>
+      </div>
+    );
+
+    /* NORA: AUFWÄRMEN */
+    if(screen==="n-warmup") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="nora" onBack={()=>go("n-joined")} onNotif={()=>{}} canCreate={false} onInfo={infoAct}/>
+        <div style={{padding:"14px"}}>
+          <div style={{background:WH,borderRadius:14,padding:"14px",marginBottom:10}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+              <p style={{fontWeight:600,fontSize:14,color:"#111",margin:0}}>Aufwärmen leiten</p>
+              <span style={{background:HL,borderRadius:20,padding:"3px 10px",fontSize:12,fontWeight:700,color:"#111"}}>+10 Karma</span>
+            </div>
+            <p style={{fontSize:12,color:"#777",lineHeight:1.6,margin:"0 0 12px"}}>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam.</p>
+            <div style={{background:`${RC}12`,border:`1px solid ${RC}40`,borderRadius:12,padding:"12px"}}>
+              <p style={{fontWeight:600,fontSize:12,color:RC,margin:"0 0 8px"}}>Tipps vom Händler</p>
+              <button style={{width:"100%",background:RC,color:WH,fontWeight:600,fontSize:12,padding:"10px 0",borderRadius:10,border:"none",cursor:"pointer"}}>Aufwärm-Routine ansehen →</button>
+              <p style={{fontSize:9,color:RC,margin:"5px 0 0",textAlign:"center",opacity:0.5}}>Optional · Link zu Video oder Anleitung</p>
+            </div>
+          </div>
+          <div style={{background:"#d8d8d8",borderRadius:12,padding:"10px 12px",marginBottom:14}}>
+            <p style={{fontSize:11,color:"#555",margin:0}}>Rückgabe möglich bis <strong style={{color:"#111"}}>Mo, 07.04. · 20:00</strong></p>
+          </div>
+          <button onClick={()=>{setAT(true);go("n-joined");}} style={{width:"100%",background:"#111",color:WH,fontWeight:600,fontSize:14,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer"}}>Task übernehmen</button>
+        </div>
+      </div>
+    );
+
+    /* NORA: KARMA-ÜBERSICHT */
+    if(screen==="n-task-confirm"){
+      const allTasks=[
+        {label:"Teilnahme",karma:5,immediate:false},
+        ...(bTaken?[{label:"Run bewerben",karma:5,immediate:true}]:[]),
+        ...(aTaken?[{label:"Aufwärmen leiten",karma:10,immediate:false}]:[]),
+      ];
+      const tot=allTasks.reduce((s,t)=>s+t.karma,0);
+      return(
+        <div style={{flex:1,overflowY:"auto"}}>
+          <AppHdr persona="nora" onBack={()=>go("n-joined")} onNotif={()=>{}} canCreate={false} onInfo={infoAct}/>
+          {/* Event detail — ausgeklappt, kann eingeklappt werden */}
+          <button onClick={()=>setEE(p=>!p)} style={{width:"100%",background:WH,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid #eee"}}>
+            <p style={{fontSize:12,color:"#888",margin:0,fontWeight:500}}>Event-Details {evtExpanded?"ausblenden":"anzeigen"}</p>
+            <span style={{fontSize:20,color:"#888",transform:evtExpanded?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0,lineHeight:1}}>⌄</span>
+          </button>
+          {(evtExpanded||!bTaken&&!aTaken)&&<EventDetailHdr e={ev}/>}
+          <div style={{padding:"10px 14px 100px"}}>
+            <div style={{background:HL,borderRadius:18,padding:"16px 14px",marginBottom:8}}>
+              <p style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"rgba(0,0,0,0.45)",margin:"0 0 2px"}}>Kundenkarte</p>
+              <p style={{fontSize:26,fontWeight:800,color:"#111",margin:"0 0 12px",lineHeight:1}}>{tot} Karma</p>
+              <div style={{borderTop:"1px solid rgba(0,0,0,0.1)",paddingTop:10}}>
+                {allTasks.map((t,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:i<allTasks.length-1?6:0}}>
+                    <p style={{fontSize:12,color:"#333",margin:0}}>{t.label}</p>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      {t.immediate&&<span style={{fontSize:9,color:"rgba(0,0,0,0.45)",background:"rgba(0,0,0,0.07)",borderRadius:20,padding:"1px 6px"}}>sofort</span>}
+                      <span style={{fontSize:11,fontWeight:700,color:"#111"}}>+{t.karma}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <p style={{fontSize:10,color:"#888",textAlign:"center",margin:"0 0 14px"}}>Karma nach Beendigung des Events gutgeschrieben</p>
+            <button onClick={()=>go("home")} style={{width:"100%",background:"#111",color:WH,fontWeight:600,fontSize:14,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer"}}>Zurück zum Feed</button>
+          </div>
+        </div>
+      );
+    }
+
+    /* NORA: KARMA REWARD */
+    if(screen==="n-karma-reward"){
+      const newKarma=[
+        {label:"Teilnahme",karma:5,already:false},
+        ...(bTaken?[{label:"Run bewerben",karma:5,already:true}]:[]),
+        ...(aTaken?[{label:"Aufwärmen leiten",karma:10,already:false}]:[]),
+      ];
+      const newTotal=newKarma.filter(t=>!t.already).reduce((s,t)=>s+t.karma,0);
+      return(
+        <div style={{flex:1,overflowY:"auto"}}>
+          <AppHdr persona="nora" onBack={()=>go("n-task-confirm")} onNotif={()=>{}} canCreate={false} onInfo={infoAct}/>
+          <div style={{padding:"14px"}}>
+            <p style={{fontWeight:700,fontSize:18,color:"#111",margin:"0 0 4px"}}>Lauf abgeschlossen!</p>
+            <p style={{fontSize:12,color:"#888",margin:"0 0 16px"}}>{ev.title} · {ev.date}</p>
+            <div style={{background:WH,borderRadius:14,overflow:"hidden",marginBottom:16}}>
+              {newKarma.map((t,i,arr)=>(
+                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 14px",borderBottom:i<arr.length-1?"1px solid #eee":"none",opacity:t.already?0.45:1}}>
+                  <div>
+                    <p style={{fontSize:13,color:"#111",margin:0}}>{t.label}</p>
+                    {t.already&&<p style={{fontSize:10,color:"#888",margin:"1px 0 0"}}>bereits erhalten</p>}
+                  </div>
+                  <span style={{fontSize:12,fontWeight:700,color:t.already?"#aaa":"#111"}}>+{t.karma}{t.already?" ✓":""}</span>
+                </div>
+              ))}
+              <div style={{display:"flex",justifyContent:"space-between",padding:"11px 14px",background:"#fafafa"}}>
+                <p style={{fontWeight:700,fontSize:13,color:"#111",margin:0}}>Neu gutgeschrieben</p>
+                <span style={{fontSize:14,fontWeight:900,color:"#111"}}>+{newTotal} Karma</span>
+              </div>
+            </div>
+            <button onClick={()=>go("profil")} style={{width:"100%",background:HL,color:"#111",fontWeight:800,fontSize:16,padding:"16px 0",borderRadius:14,border:"none",cursor:"pointer",letterSpacing:"-0.3px"}}>
+              +{newTotal} Karmapunkte sammeln
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    /* NORA: PROFIL */
+    if(screen==="profil") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="nora" onNotif={()=>{}} canCreate={false} onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{padding:"10px 14px 100px"}}>
+          <div style={{background:WH,borderRadius:14,padding:"14px",marginBottom:10,display:"flex",gap:14,alignItems:"flex-start"}}>
+            <div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${CC},${RC})`,flexShrink:0}}/>
+            <div>
+              <p style={{fontWeight:700,fontSize:16,color:"#111",margin:0}}>Nora</p>
+              <p style={{fontSize:11,color:"#888",margin:"2px 0 6px"}}>Community A · Community B</p>
+              <p style={{fontSize:11,color:"#666",lineHeight:1.5,margin:0}}>Läuft seit zwei Jahren, meist abends. Liebt Trails und gute Gespräche unterwegs.</p>
+            </div>
+          </div>
+          <button onClick={()=>go("n-wallet")} style={{width:"100%",textAlign:"left",background:HL,borderRadius:18,padding:"16px 14px",marginBottom:12,border:"none",cursor:"pointer",boxSizing:"border-box"}}>
+            <p style={{fontSize:11,fontWeight:700,color:"rgba(0,0,0,0.5)",margin:"0 0 2px"}}>Kundenkarte</p>
+            <p style={{fontSize:22,fontWeight:800,color:"#111",margin:"0 0 1px"}}>145 Karma</p>
+            <p style={{fontSize:12,color:"rgba(0,0,0,0.55)",margin:"0 0 10px"}}>72,50 € Rabatt verfügbar</p>
+            <p style={{fontSize:11,color:"rgba(0,0,0,0.4)",margin:0,textAlign:"right"}}>Tippen für Barcode →</p>
+          </button>
+          <Sec label="Badges"/>
+          <div style={{display:"flex",gap:8,marginBottom:14}}>
+            {[{l:"12 Events",I:CalI,on:true},{l:"Aufwärmen",I:RunI,on:true},{l:"Route planen",I:ChevD,on:false},{l:"Community",I:PplI,on:true}].map(b=>(
+              <div key={b.l} style={{flex:1,background:b.on?HL:"#e8e8e8",borderRadius:12,padding:"12px 6px 8px",textAlign:"center",opacity:b.on?1:0.45}}>
+                <div style={{display:"flex",justifyContent:"center",marginBottom:5}}><b.I sz={22} c={b.on?"#111":"#888"}/></div>
+                <p style={{fontSize:9,color:b.on?"#111":"#888",margin:0,fontWeight:600,lineHeight:1.3}}>{b.l}</p>
+              </div>
+            ))}
+          </div>
+          <Sec label="Meine Events"/>
+          {EVENTS.slice(0,2).map(e=>(
+            <div key={e.id} style={{background:WH,borderRadius:12,padding:"10px 14px",marginBottom:8}}>
+              <p style={{fontSize:12,fontWeight:600,color:"#111",margin:0}}>{e.title}</p>
+              <p style={{fontSize:10,color:"#888",margin:"2px 0 0"}}>{e.date} · {e.sport}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+
+    /* SHARED WALLET (Nora + Angelina) */
+    if(screen==="n-wallet"){
+      const isA=persona==="angelina";
+      const karmaAmt=isA?312:145;
+      const euroAmt=isA?"156,00":"72,50";
+      return(
+        <div style={{flex:1,overflowY:"auto",background:BG,display:"flex",flexDirection:"column"}}>
+          <div style={{padding:"12px 14px",background:BG,flexShrink:0}}><button onClick={()=>go(isA?"profil-a":"profil")} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:"#111",padding:0}}>←</button></div>
+          <div style={{padding:"0 16px 100px"}}>
+            <div style={{background:HL,borderRadius:20,padding:"18px 16px",marginBottom:18}}>
+              {/* Left-aligned header */}
+              <p style={{fontSize:11,fontWeight:700,color:"rgba(0,0,0,0.5)",margin:"0 0 2px"}}>Kundenkarte</p>
+              <p style={{fontSize:24,fontWeight:800,color:"#111",margin:"0 0 1px"}}>{karmaAmt} Karma</p>
+              <p style={{fontSize:12,color:"rgba(0,0,0,0.55)",margin:"0 0 16px"}}>{euroAmt} € Rabatt verfügbar</p>
+              {/* Centered barcode */}
+              <div style={{display:"flex",justifyContent:"center",marginBottom:8}}><Barcode/></div>
+              <p style={{fontSize:9,color:"rgba(0,0,0,0.3)",textAlign:"center",margin:0}}>Bei Händler:in zeigen zum Einlösen</p>
+            </div>
+            <p style={{fontWeight:600,fontSize:11,color:"#666",margin:"0 0 10px",textTransform:"uppercase",letterSpacing:"0.06em"}}>Transaktionen</p>
+            {[
+              {type:"earned",label:"Aufwärmen leiten – Dienstags-Laufrunde",date:"01.04.",k:10},
+              {type:"earned",label:"Teilnahme – Dienstags-Laufrunde",date:"01.04.",k:5},
+              {type:"redeemed",label:"Eingelöst – Händler K",date:"22.03.",k:-50,eur:"25,00 €"},
+              {type:"earned",label:"Pacewatcher – Bike & Coffee",date:"15.03.",k:5},
+              {type:"earned",label:"Run bewerben – Trailrun Karren",date:"08.03.",k:5},
+              {type:"redeemed",label:"Eingelöst – Händler A",date:"05.02.",k:-30,eur:"15,00 €"},
+            ].map((t,i,arr)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<arr.length-1?"1px solid #bbb":"none"}}>
+                <div><p style={{fontSize:12,color:"#111",margin:0}}>{t.label}</p><p style={{fontSize:10,color:"#888",margin:"2px 0 0"}}>{t.date}</p></div>
+                <div style={{textAlign:"right",flexShrink:0,marginLeft:12}}>
+                  <p style={{fontSize:12,fontWeight:700,color:t.type==="earned"?RC:"#e44",margin:0}}>{t.type==="earned"?"+":""}{t.k}</p>
+                  {t.eur&&<p style={{fontSize:10,color:"#888",margin:"1px 0 0"}}>−{t.eur}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    /* KUNO: NACHRICHTEN */
+    if(screen==="k-messages") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="kuno" onBack={()=>go("home")} onNotif={notifAct} notifBadge="1" canCreate={false} onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{padding:"12px 14px 80px"}}>
+          <p style={{fontWeight:700,fontSize:14,color:"#111",margin:"0 0 14px"}}>Nachrichten</p>
+          <div style={{background:WH,borderRadius:14,overflow:"hidden",marginBottom:10}}>
+            {[{name:"Nora M.",msg:"Habe die Route hochgeladen!",time:"18:42",unread:true},{name:"Angelina (Community A)",msg:"Anfrage für Samstag noch offen?",time:"16:00",unread:false},{name:"Max K.",msg:"Sweep übernommen, bis Di!",time:"14:30",unread:false}].map((m,i,arr)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderBottom:i<arr.length-1?"1px solid #eee":"none",background:m.unread?"#fafff0":"transparent"}}>
+                <div style={{width:38,height:38,borderRadius:"50%",background:`linear-gradient(135deg,${CC},${RC})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:700,color:WH,flexShrink:0}}>{m.name[0]}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <p style={{fontWeight:m.unread?700:500,fontSize:13,color:"#111",margin:0}}>{m.name}</p>
+                  <p style={{fontSize:11,color:"#888",margin:"2px 0 0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.msg}</p>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <p style={{fontSize:10,color:"#aaa",margin:0}}>{m.time}</p>
+                  {m.unread&&<div style={{width:8,height:8,borderRadius:"50%",background:HL,margin:"4px 0 0 auto"}}/>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p style={{fontSize:11,color:"#888",textAlign:"center"}}>Nachrichten ersetzen nicht WhatsApp — sie ergänzen die Task-Koordination.</p>
+        </div>
+      </div>
+    );
+
+    /* KUNO: KARMA-INFO = same as platform info screen (simplified) */
+    if(screen==="k-karma-info") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="kuno" onBack={()=>go("k-create-1")} onFab={fabAct} onNotif={notifAct} notifBadge="1" onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{padding:"12px 14px 100px"}}>
+          <p style={{fontWeight:700,fontSize:16,color:"#111",margin:"0 0 4px"}}>ananda</p>
+          <p style={{fontSize:12,color:"#666",lineHeight:1.6,margin:"0 0 14px"}}>ananda verbindet inhabergeführte Sportfachhändler mit lokalen Sport-Communities — für regelmäßige Events, ohne dass eine Person alles allein stemmen muss.</p>
+          <div style={{background:HL,borderRadius:14,padding:"14px",marginBottom:12}}>
+            <p style={{fontWeight:700,fontSize:13,color:"#111",margin:"0 0 8px"}}>Karma-Grundprinzip</p>
+            {[["Karma aktiviert sich","bei Händler–Community-Kooperation"],["1 Karma","= 0,50 € Rabatt bei teilnehmenden Händlern"],["Community übernimmt Tasks","Händler behält den Überblick"],["Mehr Events","= mehr Karma = mehr Kundenbindung"]].map(([k,v],i,arr)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:i<arr.length-1?"1px solid rgba(0,0,0,0.08)":"none"}}>
+                <p style={{fontSize:12,fontWeight:600,color:"#111",margin:0,maxWidth:"45%"}}>{k}</p>
+                <p style={{fontSize:11,color:"#333",margin:0,textAlign:"right",maxWidth:"52%"}}>{v}</p>
+              </div>
+            ))}
+          </div>
+          <p style={{fontWeight:700,fontSize:13,color:"#111",margin:"0 0 8px"}}>Häufige Fragen</p>
+          {[["Karma aktiviert sich…","…sobald dein Laden als Treffpunkt bestätigt ist und eine Community das Event mitorganisiert."],["Wann werden Punkte gutgeschrieben?","Sofort: Run bewerben (+5). Nach dem Event: alle anderen Tasks."],["Was passiert mit meinen Daten?","Nur Events, Tasks und Karma werden gespeichert. Keine Weitergabe an Dritte."]].map((f,i)=>(
+            <div key={i} style={{background:WH,borderRadius:10,padding:"10px 12px",marginBottom:6}}>
+              <p style={{fontWeight:600,fontSize:12,color:"#111",margin:"0 0 3px"}}>{f[0]}</p>
+              <p style={{fontSize:11,color:"#666",margin:0,lineHeight:1.5}}>{f[1]}</p>
+            </div>
+          ))}
+          <button onClick={()=>go("k-create-2")} style={{width:"100%",marginTop:14,background:"#111",color:WH,fontWeight:600,fontSize:13,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer"}}>Weiter: Tasks auswählen</button>
+        </div>
+      </div>
+    );
+
+        /* KUNO: ERSTELLEN 1/2 */
+    if(screen==="k-create-1") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="kuno" onBack={()=>go("profil-k")} onNotif={notifAct} notifBadge="1" canCreate={false} onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{padding:"10px 14px 120px"}}>
+          <p style={{fontWeight:700,fontSize:14,color:"#111",margin:"0 0 12px"}}>Rahmenbedingungen</p>
+          <div style={{marginBottom:10}}>
+            <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#888",margin:"0 0 5px"}}>Startpunkt</p>
+            <div style={{background:WH,borderRadius:10,padding:"10px 12px",fontSize:12,color:"#444"}}>Händler K, Dornbirn</div>
+          </div>
+          {[{l:"Event-Name",v:"Dienstags-Laufrunde Dornbirn"},{l:"Sportart",v:"Laufen"},{l:"Wann?",v:"Di, 08.04. · 18:30"}].map(f=>(
+            <div key={f.l} style={{marginBottom:10}}>
+              <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#888",margin:"0 0 5px"}}>{f.l}</p>
+              <div style={{background:WH,borderRadius:10,padding:"10px 12px",fontSize:12,color:"#444"}}>{f.v}</div>
+            </div>
+          ))}
+          <div style={{marginBottom:10}}>
+            <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#888",margin:"0 0 5px"}}>Wiederholung</p>
+            <Dropdown value={kunoRec} onChange={setKR} options={[["once","Einmalig"],["weekly-mon","Jeden Montag"],["weekly-tue","Jeden Dienstag"],["weekly-sat","Jeden Samstag"],["monthly","Monatlich"]]}/>
+          </div>
+          <div style={{marginBottom:10}}>
+            <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#888",margin:"0 0 5px"}}>Richtwerte (optional)</p>
+            <div style={{display:"flex",gap:8}}>
+              <div style={{flex:1,background:WH,borderRadius:10,padding:"10px 12px",fontSize:12,color:"#888"}}>~8 km</div>
+              <div style={{flex:1,background:WH,borderRadius:10,padding:"10px 12px",fontSize:12,color:"#888"}}>~5:30 min/km</div>
+            </div>
+          </div>
+          <div style={{marginBottom:14}}>
+            <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#888",margin:"0 0 6px"}}>Zielgruppe</p>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {["Hobbyläufer","Eher Ältere","Anfänger","Trail"].map(g=>(
+                <button key={g} onClick={()=>toggleG(g)} style={{padding:"6px 12px",borderRadius:20,fontSize:11,fontWeight:500,border:"none",cursor:"pointer",background:kunoGroup.includes(g)?HL:WH,color:kunoGroup.includes(g)?"#111":"#777"}}>{g}</button>
+              ))}
+            </div>
+          </div>
+          <button onClick={()=>go("k-create-2")} style={{width:"100%",background:"#111",color:WH,fontWeight:600,fontSize:13,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer"}}>Tasks auswählen</button>
+        </div>
+      </div>
+    );
+
+    /* KUNO: ERSTELLEN 2/2 */
+    if(screen==="k-create-2") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="kuno" onBack={()=>go("k-create-1")} onNotif={notifAct} notifBadge="1" canCreate={false} onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{padding:"10px 14px 120px"}}>
+          <p style={{fontWeight:700,fontSize:14,color:"#111",margin:"0 0 4px"}}>Tasks</p>
+          {kunoGroup.length>0&&<p style={{fontSize:11,color:RC,background:`${RC}12`,borderRadius:8,padding:"5px 10px",margin:"0 0 10px"}}>Vorlage für: <strong>{kunoGroup.join(", ")}</strong></p>}
+          <div style={{background:WH,borderRadius:14,overflow:"hidden",marginBottom:10}}>
+            {TMPLS_KUNO.map((t,i)=>{
+              const own=ownersK[t.id];
+              const k=taskKarma[t.id];
+              const isFixed=t.retailer;
+              return(
+                <div key={t.id} style={{padding:"11px 14px",borderBottom:i<TMPLS_KUNO.length-1?"1px solid #eee":"none"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:t.karma>0?6:0}}>
+                    <p style={{flex:1,fontSize:13,color:"#111",margin:0}}>{t.label}</p>
+                    {isFixed
+                      ?<span style={{fontSize:11,color:RC,fontWeight:600,background:`${RC}12`,borderRadius:20,padding:"3px 9px",flexShrink:0}}>Händler K</span>
+                      :<div style={{display:"flex",borderRadius:10,overflow:"hidden",border:"1px solid #ddd",flexShrink:0}}>
+                        <button onClick={()=>toggleOK(t.id)} style={{padding:"5px 10px",fontSize:11,fontWeight:700,border:"none",cursor:"pointer",background:own==="self"?HL:"#f5f5f5",color:own==="self"?"#111":"#aaa"}}>Ich</button>
+                        <button onClick={()=>toggleOK(t.id)} style={{padding:"5px 10px",fontSize:11,fontWeight:700,border:"none",cursor:"pointer",background:own==="community"?HL:"#f5f5f5",color:own==="community"?"#111":"#aaa"}}>Community</button>
+                      </div>
+                    }
+                  </div>
+                  {t.karma>0&&own!=="self"&&(
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <p style={{fontSize:10,color:"#aaa",margin:0}}>Karma:</p>
+                      <div style={{display:"flex",alignItems:"center",gap:4}}>
+                        <button onClick={()=>adjKarma(t.id,-5)} style={{width:22,height:22,background:"#eee",border:"none",borderRadius:6,cursor:"pointer",fontSize:14,fontWeight:700,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                        <span style={{fontSize:12,fontWeight:700,color:"#111",minWidth:24,textAlign:"center"}}>{k}</span>
+                        <button onClick={()=>adjKarma(t.id,5)} style={{width:22,height:22,background:"#eee",border:"none",borderRadius:6,cursor:"pointer",fontSize:14,fontWeight:700,color:"#555",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                      </div>
+                      {k!==t.karma&&<span style={{fontSize:9,color:"#aaa"}}>(Empfehlung: {t.karma})</span>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div style={{background:WH,borderRadius:12,padding:"12px 14px",marginBottom:10,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{flex:1,paddingRight:10}}>
+              <p style={{fontSize:12,fontWeight:600,color:"#111",margin:"0 0 2px"}}>Dynamische Karma-Erhöhung</p>
+              <p style={{fontSize:10,color:"#888",margin:0}}>Punkte steigen wenn Task kurz vor Event noch offen ist</p>
+            </div>
+            <button onClick={()=>setDynK(p=>!p)} style={{flexShrink:0,width:44,height:24,borderRadius:12,background:dynK?"#111":"#ddd",border:"none",cursor:"pointer",position:"relative"}}>
+              <div style={{position:"absolute",top:3,left:dynK?22:3,width:18,height:18,borderRadius:"50%",background:dynK?HL:WH,transition:"left .2s"}}/>
+            </button>
+          </div>
+          <button style={{width:"100%",background:WH,color:"#555",fontWeight:500,fontSize:12,padding:"10px 0",borderRadius:10,border:"none",cursor:"pointer",marginBottom:12}}>+ Weiteren Task hinzufügen</button>
+          <button onClick={()=>go("k-home-after")} style={{width:"100%",background:"#111",color:WH,fontWeight:600,fontSize:13,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer"}}>Event erstellen</button>
+        </div>
+      </div>
+    );
+
+    /* KUNO: PROFIL */
+    if(screen==="profil-k") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="kuno" onFab={fabAct} onNotif={notifAct} notifBadge="1" subLabel="Händler K" onSubLabel={()=>go("shop-detail")} onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{padding:"10px 14px 80px"}}>
+          <div style={{background:RC,borderRadius:14,padding:"16px 14px",marginBottom:12,display:"flex",gap:14,alignItems:"flex-start"}}>
+            <div style={{width:52,height:52,borderRadius:"50%",background:"rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:22,fontWeight:700,color:WH}}>K</div>
+            <div>
+              <p style={{fontWeight:700,fontSize:16,color:WH,margin:0}}>Kuno</p>
+              <p style={{fontSize:11,color:"rgba(255,255,255,0.5)",margin:"2px 0 6px"}}>Händler K · ananda Partner</p>
+              <p style={{fontSize:11,color:"rgba(255,255,255,0.6)",lineHeight:1.5,margin:0}}>Inhabergeführter Sporthandel, Dornbirn. Events als Kernstrategie seit 2025.</p>
+            </div>
+          </div>
+          <button onClick={()=>go("k-roi")} style={{width:"100%",background:HL,color:"#111",fontWeight:700,fontSize:13,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer",marginBottom:12}}>ROI & Wirkungsbericht →</button>
+          <Sec label="Meine Events"/>
+          {EVENTS.filter(e=>e.retailer).map(e=>(
+            <button key={e.id} onClick={()=>go("k-manage")} style={{width:"100%",textAlign:"left",background:WH,borderRadius:14,padding:"12px 14px",marginBottom:8,border:"none",cursor:"pointer",boxSizing:"border-box"}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                <span style={{fontSize:10,fontWeight:700,textTransform:"uppercase",color:RC}}>{e.sport} · {e.recurring}</span>
+                <span style={{fontSize:10,color:"#aaa"}}>{K_TASKS_STATUS.filter(t=>!t.done&&t.type==="community").length} offen</span>
+              </div>
+              <p style={{fontWeight:600,fontSize:13,color:"#111",margin:"0 0 2px"}}>{e.title}</p>
+              <p style={{fontSize:11,color:"#888",margin:0}}>{e.location} · {e.date}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+
+    /* KUNO: KONTROLLE A — Pull */
+    if(screen==="k-manage") return(
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <AppHdr persona={persona} onBack={()=>go(persona==="angelina"?"profil-a":"profil-k")} onFab={fabAct} onNotif={notifAct} notifBadge="1" onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{flex:1,overflowY:"auto",paddingBottom:100}}>
+          <button onClick={()=>setEE(p=>!p)} style={{width:"100%",background:WH,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid #eee"}}>
+            <p style={{fontSize:12,color:"#888",margin:0,fontWeight:500}}>Event-Details {evtExpanded?"ausblenden":"anzeigen"}</p>
+            <span style={{fontSize:20,color:"#888",transform:evtExpanded?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0,lineHeight:1}}>⌄</span>
+          </button>
+          {evtExpanded&&<EventDetailHdr e={ev}/>}
+          <div style={{padding:"4px 14px 14px"}}>
+            <Sec label="Task-Status"/>
+            <div style={{background:WH,borderRadius:14,overflow:"hidden",marginBottom:14}}>
+              {K_TASKS_STATUS.map((t,i,arr)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",padding:"11px 14px",borderBottom:i<arr.length-1?"1px solid #eee":"none",gap:8}}>
+                  <p style={{flex:1,fontSize:13,color:t.done?"#999":"#111",margin:0}}>{t.label}</p>
+                  {t.person
+                    ?<button onClick={()=>t.type==="retailer"?go("shop-detail"):go("k-trust-lisa")} style={{fontSize:11,color:t.type==="retailer"?RC:CC,fontWeight:600,background:t.type==="retailer"?`${RC}12`:`${CC}15`,border:"none",borderRadius:20,padding:"3px 10px",cursor:"pointer",flexShrink:0}}>{t.person}</button>
+                    :<span style={{fontSize:10,background:"#f0f0f0",color:"#888",borderRadius:20,padding:"2px 8px",flexShrink:0}}>Offen</span>
+                  }
+                </div>
+              ))}
+            </div>
+            <button style={{width:"100%",padding:"13px 0",borderRadius:12,fontSize:13,fontWeight:600,border:"none",background:"#fee",color:"#c00",cursor:"pointer"}}>Event absagen</button>
+          </div>
+        </div>
+      </div>
+    );
+
+    /* KUNO: KONTROLLE B — Push 1 (Notification) */
+    if(screen==="k-manage-b1") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona={persona} onFab={fabAct} onNotif={notifAct} notifBadge="2" onInfo={infoAct} onMsg={msgAct} subLabel={persona==="angelina"?"Community A":"Händler K"} onSubLabel={()=>go(persona==="angelina"?"a-community":"shop-detail")}/>
+        <div style={{padding:"12px 14px 100px"}}>
+          <Sec label="Benachrichtigungen"/>
+          <div style={{background:WH,borderRadius:14,padding:"12px 14px",marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <p style={{fontWeight:700,fontSize:13,color:"#111",margin:0}}>Route hochgeladen</p>
+              <span style={{fontSize:10,color:"#888"}}>vor 2h</span>
+            </div>
+            <p style={{fontSize:12,color:"#555",margin:"0 0 8px",lineHeight:1.5}}>Lisa hat Route planen übernommen.</p>
+            <button onClick={()=>go("k-manage-b2")} style={{fontSize:11,fontWeight:600,color:RC,background:`${RC}12`,border:"none",borderRadius:8,padding:"5px 12px",cursor:"pointer"}}>Event-Status ansehen →</button>
+          </div>
+        </div>
+      </div>
+    );
+
+    /* KUNO: KONTROLLE B — Push 2 (Task-Status mit Zeitstempeln) */
+    if(screen==="k-manage-b2") return(
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <AppHdr persona={persona} onBack={()=>go("k-manage-b1")} onFab={fabAct} onNotif={notifAct} notifBadge="1" onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{flex:1,overflowY:"auto",paddingBottom:100}}>
+          <button onClick={()=>setEE(p=>!p)} style={{width:"100%",background:WH,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid #eee"}}>
+            <p style={{fontSize:12,color:"#888",margin:0,fontWeight:500}}>Event-Details {evtExpanded?"ausblenden":"anzeigen"}</p>
+            <span style={{fontSize:20,color:"#888",transform:evtExpanded?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0,lineHeight:1}}>⌄</span>
+          </button>
+          {evtExpanded&&<EventDetailHdr e={ev}/>}
+          <div style={{padding:"4px 14px 14px"}}>
+            <Sec label="Task-Status"/>
+            <div style={{background:WH,borderRadius:14,overflow:"hidden",marginBottom:14}}>
+              {K_TASKS_STATUS.map((t,i,arr)=>(
+                <div key={i} style={{padding:"11px 14px",borderBottom:i<arr.length-1?"1px solid #eee":"none"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <p style={{flex:1,fontSize:13,color:t.done?"#999":"#111",margin:0}}>{t.label}</p>
+                    {t.person
+                      ?<button onClick={()=>t.type==="retailer"?go("shop-detail"):go("k-trust-lisa")} style={{fontSize:11,color:t.type==="retailer"?RC:CC,fontWeight:600,background:t.type==="retailer"?`${RC}12`:`${CC}15`,border:"none",borderRadius:20,padding:"3px 10px",cursor:"pointer",flexShrink:0}}>{t.person}</button>
+                      :<span style={{fontSize:10,background:"#f0f0f0",color:"#888",borderRadius:20,padding:"2px 8px",flexShrink:0}}>Offen</span>
+                    }
+                  </div>
+                  {t.updated!=="—"&&<p style={{fontSize:10,margin:"3px 0 0"}}><span style={{background:HL,borderRadius:4,padding:"0 4px",fontWeight:600,color:"#111"}}>{t.updated} aktualisiert</span></p>}
+                </div>
+              ))}
+            </div>
+            <button style={{width:"100%",padding:"13px 0",borderRadius:12,fontSize:13,fontWeight:600,border:"none",background:"#fee",color:"#c00",cursor:"pointer"}}>Event absagen</button>
+          </div>
+        </div>
+      </div>
+    );
+
+    /* KUNO: KONTROLLE C — Push zurück 1 (Notification) */
+    if(screen==="k-manage-c1") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona={persona} onFab={fabAct} onNotif={notifAct} notifBadge="2" onInfo={infoAct} onMsg={msgAct} subLabel={persona==="angelina"?"Community A":"Händler K"} onSubLabel={()=>go(persona==="angelina"?"a-community":"shop-detail")}/>
+        <div style={{padding:"12px 14px 100px"}}>
+          <Sec label="Benachrichtigungen"/>
+          <div style={{background:WH,borderRadius:14,padding:"12px 14px",marginBottom:10}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+              <p style={{fontWeight:700,fontSize:13,color:"#111",margin:0}}>Route hochgeladen</p>
+              <span style={{fontSize:10,color:"#888"}}>vor 2h</span>
+            </div>
+            <p style={{fontSize:12,color:"#555",margin:"0 0 8px",lineHeight:1.5}}>Lisa hat Route planen übernommen.</p>
+            <button onClick={()=>go("k-manage-c2")} style={{fontSize:11,fontWeight:600,color:RC,background:`${RC}12`,border:"none",borderRadius:8,padding:"5px 12px",cursor:"pointer"}}>Event-Status ansehen →</button>
+          </div>
+        </div>
+      </div>
+    );
+
+    /* KUNO: KONTROLLE C — Push zurück 2 (Feed + Tasks) */
+    if(screen==="k-manage-c2") return(
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <AppHdr persona={persona} onBack={()=>go("k-manage-c1")} onFab={fabAct} onNotif={notifAct} notifBadge="1" onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{flex:1,overflowY:"auto",paddingBottom:100}}>
+          <button onClick={()=>setEE(p=>!p)} style={{width:"100%",background:WH,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid #eee"}}>
+            <p style={{fontSize:12,color:"#888",margin:0,fontWeight:500}}>Event-Details {evtExpanded?"ausblenden":"anzeigen"}</p>
+            <span style={{fontSize:20,color:"#888",transform:evtExpanded?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0,lineHeight:1}}>⌄</span>
+          </button>
+          {evtExpanded&&<EventDetailHdr e={ev}/>}
+          <div style={{padding:"4px 14px 14px"}}>
+            <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#777",margin:"10px 0 6px"}}>Chronologischer Feed</p>
+            <div style={{background:WH,borderRadius:12,padding:"10px 12px",marginBottom:10}}>
+              {[{t:"18:42",a:"Lisa",m:"Route hochgeladen (8,2 km GPX)"},{t:"17:15",a:"Max",m:"Run bewerben"},{t:"14:30",a:"Händler K",m:"Laden-Öffnung bestätigt"},{t:"10:05",a:"Lisa",m:"Route planen übernommen"}].map((e,i)=>(
+                <div key={i} style={{display:"flex",gap:8,marginBottom:5}}>
+                  <span style={{fontSize:10,color:"#888",width:36,flexShrink:0,paddingTop:2}}>{e.t}</span>
+                  <p style={{fontSize:11,margin:0}}><span style={{fontWeight:600,color:"#111"}}>{e.a}</span><span style={{color:"#666"}}> {e.m}</span></p>
+                </div>
+              ))}
+            </div>
+            <Sec label="Tasks + Nachricht senden"/>
+            <div style={{background:WH,borderRadius:14,overflow:"hidden",marginBottom:14}}>
+              {K_TASKS_STATUS.map((t,i,arr)=>(
+                <div key={i} style={{padding:"10px 14px",borderBottom:i<arr.length-1?"1px solid #eee":"none"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:t.person&&t.type!=="retailer"?4:0}}>
+                    <p style={{flex:1,fontSize:13,color:t.done?"#999":"#111",margin:0}}>{t.label}</p>
+                    {t.person?<button onClick={()=>t.type==="retailer"?go("shop-detail"):go("k-trust-lisa")} style={{fontSize:11,color:t.type==="retailer"?RC:CC,fontWeight:600,background:t.type==="retailer"?`${RC}12`:`${CC}15`,border:"none",borderRadius:20,padding:"3px 10px",cursor:"pointer",flexShrink:0}}>{t.person}</button>:<span style={{fontSize:10,background:"#fee",color:"#e66",borderRadius:20,padding:"2px 8px",flexShrink:0}}>Offen</span>}
+                  </div>
+                  {t.person&&t.type!=="retailer"&&<button style={{fontSize:10,color:RC,background:`${RC}12`,border:"none",borderRadius:8,padding:"3px 10px",cursor:"pointer",fontWeight:500}}>Nachricht senden →</button>}
+                </div>
+              ))}
+            </div>
+            <button style={{width:"100%",padding:"13px 0",borderRadius:12,fontSize:13,fontWeight:600,border:"none",background:"#fee",color:"#c00",cursor:"pointer"}}>Event absagen</button>
+          </div>
+        </div>
+      </div>
+    );
+    /* KUNO: BLOCK 3 – VERTRAUEN Screen 1 */
+    if(screen==="k-trust-1") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona={persona} onBack={()=>go("k-manage")} onNotif={notifAct} notifBadge="1" canCreate={false} onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{padding:"8px 0 0"}}>
+          <button onClick={()=>setEE(p=>!p)} style={{width:"100%",background:WH,border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid #eee"}}>
+            <p style={{fontSize:12,color:"#888",margin:0,fontWeight:500}}>Event-Details {evtExpanded?"ausblenden":"anzeigen"}</p>
+            <span style={{fontSize:20,color:"#888",transform:evtExpanded?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0,lineHeight:1}}>⌄</span>
+          </button>
+          {evtExpanded&&<EventDetailHdr e={ev}/>}
+          <div style={{padding:"10px 14px 100px"}}>
+            <Sec label="Task-Status"/>
+            <div style={{background:WH,borderRadius:14,overflow:"hidden",marginBottom:12}}>
+              {K_TASKS_STATUS.map((t,i,arr)=>{
+                const dest=t.person==="Händler K"?"shop-detail":t.person==="Lisa"?"k-trust-lisa":t.person==="Sarah"?"k-trust-tom":null;
+                return(
+                  <div key={i} style={{display:"flex",alignItems:"center",padding:"11px 14px",borderBottom:i<arr.length-1?"1px solid #eee":"none",gap:8}}>
+                    <p style={{flex:1,fontSize:13,color:t.done?"#999":"#111",margin:0}}>{t.label}</p>
+                    {t.person
+                      ?<button onClick={()=>dest&&go(dest)} style={{fontSize:11,color:t.type==="retailer"?RC:CC,fontWeight:600,background:t.type==="retailer"?`${RC}12`:`${CC}15`,border:"none",borderRadius:20,padding:"3px 10px",cursor:dest?"pointer":"default",flexShrink:0}}>{t.person}</button>
+                      :<span style={{fontSize:10,background:"#fee",color:"#e66",borderRadius:20,padding:"2px 8px"}}>Offen</span>
+                    }
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+    /* KUNO: BLOCK 3 – EINSTELLUNGEN */
+    if(screen==="k-trust-2") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona={persona} onBack={()=>go("k-trust-1")} onNotif={notifAct} notifBadge="1" canCreate={false} onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{padding:"14px 14px 100px"}}>
+          <p style={{fontWeight:700,fontSize:15,color:"#111",margin:"0 0 4px"}}>Einstellungen</p>
+          <p style={{fontSize:12,color:"#888",margin:"0 0 14px"}}>Wie willst du zukünftige Bewerbungen handhaben?</p>
+          <div style={{background:WH,borderRadius:14,padding:"14px"}}>
+            <p style={{fontWeight:600,fontSize:13,color:"#111",margin:"0 0 10px"}}>Zukünftige Bewerbungen</p>
+            {[["auto","Automatisch zuweisen"],["confirm_unknown","Nur Unbekannte bestätigen"],["always","Immer bestätigen"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setAA(v)} style={{width:"100%",textAlign:"left",display:"flex",alignItems:"center",gap:10,padding:"11px 0",background:"none",border:"none",cursor:"pointer",borderBottom:v!=="always"?"1px solid #eee":"none"}}>
+                <div style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${autoAssign===v?RC:"#ccc"}`,background:autoAssign===v?RC:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  {autoAssign===v&&<div style={{width:6,height:6,borderRadius:"50%",background:WH}}/>}
+                </div>
+                <p style={{fontSize:13,color:"#111",margin:0,fontWeight:autoAssign===v?600:400}}>{l}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+
+    /* KUNO: BLOCK 3 – LISA PROFIL */
+    if(screen==="k-trust-lisa") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona={persona} onBack={()=>go("k-trust-1")} onNotif={notifAct} notifBadge="1" canCreate={false} onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{padding:"12px 14px 100px"}}>
+          <div style={{background:WH,borderRadius:16,overflow:"hidden",marginBottom:14}}>
+            <div style={{background:`linear-gradient(135deg,${CC}33,${RC}22)`,padding:"16px 14px",display:"flex",alignItems:"center",gap:14}}>
+              <div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${CC},${RC})`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:20,color:WH,flexShrink:0}}>N</div>
+              <div><p style={{fontWeight:700,fontSize:16,color:"#111",margin:0}}>Nora M.</p><p style={{fontSize:11,color:"#888",margin:"2px 0 0"}}>Community A · seit Jan 2024</p></div>
+            </div>
+            <div style={{padding:"0 14px 14px"}}>
+              <div style={{padding:"12px 0",borderBottom:"1px solid #eee"}}>
+                <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:"#aaa",margin:"0 0 6px"}}>Aufgaben-Track Record</p>
+                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                  {[["Pacewatcher","5×"],["Route planen","3×"],["Aufwärmen","2×"]].map(([label,count])=>(
+                    <span key={label} style={{background:`${CC}15`,border:`1px solid ${CC}40`,borderRadius:20,padding:"3px 9px",fontSize:11,color:CC,fontWeight:500}}>{label} <strong>{count}</strong></span>
+                  ))}
+                </div>
+              </div>
+              <div style={{padding:"10px 0",borderBottom:"1px solid #eee"}}>
+                <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:"#aaa",margin:"0 0 5px"}}>Abschlussrate</p>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{flex:1,background:"#eee",borderRadius:999,height:6}}><div style={{width:"100%",background:"#111",height:6,borderRadius:999}}/></div>
+                  <span style={{fontSize:13,fontWeight:700,color:"#111",flexShrink:0}}>8 / 8</span>
+                </div>
+              </div>
+              <div style={{paddingTop:10}}>
+                <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:"#aaa",margin:"0 0 6px"}}>Event-Beteiligungen</p>
+                {[{shop:"Händler A",ev:3,note:"Diverse Events"},{shop:"Community A Events",ev:5,note:"Regelmäßig"}].map((e,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:i<1?"1px solid #f5f5f5":"none"}}>
+                    <div><p style={{fontSize:12,color:"#111",margin:0}}>{e.shop}</p><p style={{fontSize:10,color:"#888",margin:0}}>{e.note}</p></div>
+                    <span style={{fontSize:12,fontWeight:700,color:RC}}>{e.ev}×</span>
+                  </div>
+                ))}
+                <p style={{fontSize:11,color:"#e66",fontWeight:600,margin:"8px 0 0"}}>0 Events bei Händler K</p>
+              </div>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>go("k-trust-tom")} style={{flex:1,background:"#111",color:WH,fontWeight:700,fontSize:14,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer"}}>Akzeptieren</button>
+            <button onClick={()=>go("k-trust-tom")} style={{flex:1,background:WH,color:"#555",fontWeight:600,fontSize:14,padding:"13px 0",borderRadius:12,border:"1px solid #ccc",cursor:"pointer"}}>Ablehnen</button>
+          </div>
+        </div>
+      </div>
+    );
+
+    /* KUNO: BLOCK 3 – TOM PROFIL */
+    if(screen==="k-trust-tom") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona={persona} onBack={()=>go("k-trust-lisa")} onNotif={notifAct} notifBadge="1" canCreate={false} onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{padding:"12px 14px 100px"}}>
+          <div style={{background:WH,borderRadius:16,overflow:"hidden",marginBottom:14}}>
+            <div style={{background:`linear-gradient(135deg,${CC}22,${RC}11)`,padding:"16px 14px",display:"flex",alignItems:"center",gap:14}}>
+              <div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,#888,#555)`,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:20,color:WH,flexShrink:0}}>T</div>
+              <div><p style={{fontWeight:700,fontSize:16,color:"#111",margin:0}}>Sarah W.</p><p style={{fontSize:11,color:"#888",margin:"2px 0 0"}}>Community A · seit März 2025</p></div>
+            </div>
+            <div style={{padding:"0 14px 14px"}}>
+              <div style={{padding:"12px 0",borderBottom:"1px solid #eee"}}>
+                <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:"#aaa",margin:"0 0 6px"}}>Aufgaben-Track Record</p>
+                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                  {[["Sweep","0×"],["Route planen","2×"],["Pacewatcher","1×"]].map(([label,count])=>(
+                    <span key={label} style={{background:label==="Sweep"?"#fee":`${CC}15`,border:`1px solid ${label==="Sweep"?"#fcc":`${CC}40`}`,borderRadius:20,padding:"3px 9px",fontSize:11,color:label==="Sweep"?"#e66":CC,fontWeight:500}}>{label} <strong>{count}</strong></span>
+                  ))}
+                </div>
+              </div>
+              <div style={{padding:"10px 0",borderBottom:"1px solid #eee"}}>
+                <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:"#aaa",margin:"0 0 5px"}}>Abschlussrate</p>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{flex:1,background:"#eee",borderRadius:999,height:6}}><div style={{width:`${(5/6)*100}%`,background:"#111",height:6,borderRadius:999}}/></div>
+                  <span style={{fontSize:13,fontWeight:700,color:"#111",flexShrink:0}}>5 / 6</span>
+                </div>
+              </div>
+              <div style={{paddingTop:10}}>
+                <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:"#aaa",margin:"0 0 6px"}}>Event-Beteiligungen</p>
+                {[{shop:"Händler K",ev:2,note:"Bekannt aus früheren Events"},{shop:"Community A Events",ev:2,note:"Regelmäßig"}].map((e,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:i<1?"1px solid #f5f5f5":"none"}}>
+                    <div><p style={{fontSize:12,color:"#111",margin:0}}>{e.shop}</p><p style={{fontSize:10,color:"#888",margin:0}}>{e.note}</p></div>
+                    <span style={{fontSize:12,fontWeight:700,color:RC}}>{e.ev}×</span>
+                  </div>
+                ))}
+                <p style={{fontSize:11,color:"#888",margin:"8px 0 0"}}>2 Events bei Händler K · bekannt</p>
+              </div>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>go("k-trust-2")} style={{flex:1,background:"#111",color:WH,fontWeight:700,fontSize:14,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer"}}>Akzeptieren</button>
+            <button onClick={()=>go("k-trust-2")} style={{flex:1,background:WH,color:"#555",fontWeight:600,fontSize:14,padding:"13px 0",borderRadius:12,border:"1px solid #ccc",cursor:"pointer"}}>Ablehnen</button>
+          </div>
+        </div>
+      </div>
+    );
+
+    /* KUNO: ANFRAGE */
+    if(screen==="k-request") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="kuno" onBack={()=>go("home")} onFab={fabAct} onNotif={notifAct} notifBadge="1" onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{padding:"12px 14px 80px"}}>
+          <div style={{background:WH,borderRadius:14,padding:"14px",marginBottom:10}}>
+            <p style={{fontWeight:600,fontSize:13,color:"#111",margin:"0 0 2px"}}>Angelina · Community A</p>
+            <p style={{fontSize:11,color:"#888",margin:"0 0 12px"}}>27 Mitglieder · 12 Events</p>
+            <p style={{fontSize:12,color:"#555",lineHeight:1.6,margin:"0 0 10px",fontStyle:"italic"}}>„Wir würden gerne deinen Laden als Treffpunkt nutzen — jeden Samstag, 08:30–09:30 Uhr."</p>
+            <div style={{fontSize:11,color:"#888"}}><p style={{margin:"0 0 3px"}}>Jeden Samstag · 09:00</p><p style={{margin:"0 0 3px"}}>10–15 TN</p><p style={{margin:0}}>Raum für Nachbesprechung (~1h)</p></div>
+          </div>
+          <div style={{background:"#d8d8d8",borderRadius:12,padding:"10px 12px",marginBottom:8}}>
+            <p style={{fontWeight:600,fontSize:11,color:"#333",margin:"0 0 3px"}}>Dein Beitrag als Task sichtbar</p>
+            <p style={{fontSize:11,color:"#666",margin:0}}>„Raum bereitstellen — Händler K" erscheint gleichwertig neben Community-Tasks.</p>
+          </div>
+          <div style={{background:HL,borderRadius:12,padding:"10px 12px",marginBottom:20}}>
+            <p style={{fontWeight:600,fontSize:11,color:"#333",margin:"0 0 3px"}}>Karma-Aktivierung</p>
+            <p style={{fontSize:11,color:"#555",margin:0}}>Community sammelt Karma — Rabatte in deinem Laden.</p>
+          </div>
+          <button style={{width:"100%",background:"#111",color:WH,fontWeight:600,fontSize:13,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer",marginBottom:8}}>Anfrage annehmen</button>
+          <button style={{width:"100%",background:WH,color:"#666",fontWeight:500,fontSize:13,padding:"11px 0",borderRadius:12,border:"1px solid #ccc",cursor:"pointer"}}>Rückfrage stellen</button>
+        </div>
+      </div>
+    );
+
+    /* KUNO: ROI */
+    if(screen==="k-roi") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="kuno" onBack={()=>go("profil-k")} onNotif={notifAct} notifBadge="1" canCreate={false} onInfo={infoAct} onMsg={msgAct}/>
+        <div style={{padding:"12px 14px 120px"}}>
+          <p style={{fontWeight:700,fontSize:16,color:"#111",margin:"0 0 14px"}}>ROI & Wirkungsbericht</p>
+          {/* Reichweite */}
+          <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#777",margin:"0 0 8px"}}>Reichweite</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+            {[["147","Teilnahmen gesamt"],["312","Personen erreicht"],["3","aktive Communities"],["12","Events durchgeführt"]].map(([v,l])=>(
+              <div key={l} style={{background:WH,borderRadius:12,padding:"14px",textAlign:"center"}}><p style={{fontWeight:800,fontSize:22,color:"#111",margin:0}}>{v}</p><p style={{fontSize:10,color:"#888",margin:"3px 0 0"}}>{l}</p></div>
+            ))}
+          </div>
+          {/* Umsatz */}
+          <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#777",margin:"0 0 8px"}}>Umsatz & Karma</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+            {[["840","Karma vergeben"],["420 €","Rabatte eingelöst"],["2.840 €","Einkäufe über Plattform"],["19,3 €","Ø Bon pro Einlösung"]].map(([v,l])=>(
+              <div key={l} style={{background:WH,borderRadius:12,padding:"14px",textAlign:"center"}}><p style={{fontWeight:800,fontSize:v.includes("€")&&v.length>5?16:22,color:"#111",margin:0}}>{v}</p><p style={{fontSize:10,color:"#888",margin:"3px 0 0"}}>{l}</p></div>
+            ))}
+          </div>
+          {/* Conversion note */}
+          <div style={{background:HL,borderRadius:12,padding:"12px 14px",marginBottom:12}}>
+            <p style={{fontWeight:700,fontSize:12,color:"#111",margin:"0 0 4px"}}>Einkäufe über Plattform</p>
+            <p style={{fontSize:11,color:"#333",margin:0,lineHeight:1.5}}>68 Personen haben nach einem Event im Laden eingekauft. Ø Bon 41,70 €. Gesamtumsatz: 2.840 €.</p>
+          </div>
+          <div style={{background:WH,borderRadius:12,padding:"12px 14px"}}>
+            <p style={{fontWeight:600,fontSize:12,color:"#111",margin:"0 0 8px"}}>Top Communities nach Umsatz</p>
+            {[{name:"Community A",umsatz:"1.560 €",personen:42},{name:"Community B",umsatz:"820 €",personen:18},{name:"Community C",umsatz:"460 €",personen:8}].map((c,i,arr)=>(
+              <div key={c.name} style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:i<arr.length-1?"1px solid #eee":"none"}}>
+                <div><p style={{fontSize:12,color:"#111",margin:0}}>{c.name}</p><p style={{fontSize:10,color:"#888",margin:"1px 0 0"}}>{c.personen} Personen</p></div>
+                <span style={{fontSize:12,fontWeight:700,color:RC}}>{c.umsatz}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+
+    /* ANGELINA: ERSTELLEN 1/2 */
+    if(screen==="a-create-1") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="angelina" onBack={()=>go("profil-a")} onNotif={()=>{}} canCreate={false} onInfo={infoAct} onMsg={()=>go("k-messages")}/>
+        <div style={{padding:"10px 14px 120px"}}>
+          <p style={{fontWeight:700,fontSize:14,color:"#111",margin:"0 0 12px"}}>Rahmenbedingungen</p>
+          <div style={{marginBottom:10}}>
+            <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#888",margin:"0 0 5px"}}>Startpunkt</p>
+            <div style={{display:"flex",gap:6}}>
+              {["Offen","Fixer Punkt"].map((o,i)=>(
+                <button key={o} style={{flex:1,padding:"9px 0",borderRadius:10,fontSize:12,fontWeight:500,border:"none",cursor:"pointer",background:i===0?HL:WH,color:i===0?"#111":"#777"}}>{o}</button>
+              ))}
+            </div>
+          </div>
+          {[{l:"Event-Name",v:"Trailrun Community A"},{l:"Sportart",v:"Trailrunning"},{l:"Wann?",v:"Mi, 09.04. · 07:00"},{l:"Richtwert Distanz",v:"~10 km"},{l:"Richtwert Tempo",v:"Moderat"}].map(f=>(
+            <div key={f.l} style={{marginBottom:10}}>
+              <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#888",margin:"0 0 5px"}}>{f.l}</p>
+              <div style={{background:"#d8d8d8",borderRadius:10,padding:"10px 12px",fontSize:12,color:"#444"}}>{f.v}</div>
+            </div>
+          ))}
+          <div style={{marginBottom:10}}>
+            <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#888",margin:"0 0 5px"}}>Wiederholung</p>
+            <Dropdown value={aRecurring} onChange={setAR} options={[["once","Einmalig"],["weekly-tue","Jeden Dienstag"],["weekly-sat","Jeden Samstag"],["monthly","Monatlich"]]}/>
+          </div>
+          <div style={{marginBottom:14}}>
+            <p style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.08em",color:"#888",margin:"0 0 5px"}}>Zielgruppe</p>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {["Hobbyläufer","Anfänger","Trail","Eher Ältere"].map(g=>(
+                <button key={g} style={{padding:"6px 12px",borderRadius:20,fontSize:11,fontWeight:500,border:"none",cursor:"pointer",background:WH,color:"#777"}}>{g}</button>
+              ))}
+            </div>
+          </div>
+          <button onClick={()=>go("a-create-2")} style={{width:"100%",background:"#111",color:WH,fontWeight:600,fontSize:13,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer"}}>Tasks auswählen</button>
+        </div>
+      </div>
+    );
+
+    /* ANGELINA: ERSTELLEN 2/2 (no retailer tasks) */
+    if(screen==="a-create-2") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="angelina" onBack={()=>go("a-create-1")} onNotif={()=>{}} canCreate={false} onInfo={infoAct}/>
+        <div style={{padding:"10px 14px 100px"}}>
+          <p style={{fontWeight:700,fontSize:14,color:"#111",margin:"0 0 10px"}}>Erstellen 2/2 — Tasks</p>
+          <p style={{fontSize:12,color:"#888",margin:"0 0 10px"}}>Kein Händler beteiligt — Plattform-Treffpunkt offen.</p>
+          <div style={{background:WH,borderRadius:14,overflow:"hidden",marginBottom:10}}>
+            {TMPLS_A.map((t,i)=>{
+              const own=ownersA[t.id];
+              return(
+                <div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"11px 14px",borderBottom:i<TMPLS_A.length-1?"1px solid #eee":"none"}}>
+                  <div style={{flex:1}}><p style={{fontSize:13,color:"#111",margin:0}}>{t.label}</p>{t.karma>0&&<p style={{fontSize:10,color:"#aaa",margin:"2px 0 0"}}>+{t.karma} Karma</p>}</div>
+                  <div style={{display:"flex",borderRadius:10,overflow:"hidden",border:"1px solid #ddd",flexShrink:0}}>
+                    <button onClick={()=>toggleOA(t.id)} style={{padding:"5px 10px",fontSize:11,fontWeight:700,border:"none",cursor:"pointer",background:own==="self"?HL:"#f5f5f5",color:own==="self"?"#111":"#aaa"}}>Ich</button>
+                    <button onClick={()=>toggleOA(t.id)} style={{padding:"5px 10px",fontSize:11,fontWeight:700,border:"none",cursor:"pointer",background:own==="community"?HL:"#f5f5f5",color:own==="community"?"#111":"#aaa"}}>Community</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{background:WH,borderRadius:14,padding:"12px 14px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <p style={{fontSize:12,color:"#888",margin:0}}>Händler-Kooperation hinzufügen?</p>
+            <button onClick={()=>go("a-coop")} style={{background:RC,color:WH,border:"none",borderRadius:10,padding:"7px 12px",fontSize:11,fontWeight:600,cursor:"pointer",flexShrink:0}}>Kooperation →</button>
+          </div>
+          <button onClick={()=>go("a-home-ev1")} style={{width:"100%",background:"#111",color:WH,fontWeight:600,fontSize:13,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer"}}>Event veröffentlichen</button>
+        </div>
+      </div>
+    );
+
+    /* ANGELINA: KOOPERATION 1/2 */
+    if(screen==="a-coop") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="angelina" onBack={()=>go("a-create-2")} onNotif={()=>{}} canCreate={false} onInfo={infoAct}/>
+        <div style={{padding:"10px 14px 100px"}}>
+          <p style={{fontWeight:700,fontSize:14,color:"#111",margin:"0 0 4px"}}>Kooperation 1/2</p>
+          <p style={{fontSize:12,color:"#888",margin:"0 0 14px"}}>Ergänze dein Event um einen Händler als Partner. Er stellt Raum bereit — deine Community sammelt Karma.</p>
+          <div style={{background:HL,borderRadius:14,padding:"14px",marginBottom:14}}>
+            <p style={{fontWeight:700,fontSize:13,color:"#111",margin:"0 0 6px"}}>Was passiert?</p>
+            <p style={{fontSize:12,color:"#333",margin:0,lineHeight:1.6}}>Der Händler erhält eine Anfrage. Bei Bestätigung wird ein Task „Treffpunkt öffnen & bereitstellen" für ihn erstellt. Deine Community sammelt dann Karma für dieses Event.</p>
+          </div>
+          <button onClick={()=>go("a-invite")} style={{width:"100%",background:RC,color:WH,fontWeight:600,fontSize:13,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer",marginBottom:8}}>Händler:in auswählen →</button>
+          <button onClick={()=>go("a-create-2")} style={{width:"100%",background:"transparent",border:"1px solid #ccc",color:"#666",fontWeight:500,fontSize:13,padding:"11px 0",borderRadius:12,cursor:"pointer"}}>Ohne Kooperation weiter</button>
+        </div>
+      </div>
+    );
+
+    /* ANGELINA: HÄNDLER EINLADEN */
+    if(screen==="a-invite") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="angelina" onBack={()=>go("a-coop")} onNotif={()=>{}} canCreate={false} onInfo={infoAct}/>
+        <div style={{padding:"10px 14px 100px"}}>
+          <p style={{fontSize:12,color:"#666",margin:"0 0 12px"}}>Wähle einen Laden als Treffpunkt.</p>
+          {[{name:"Händler K",loc:"Dornbirn",ev:12,active:true},{name:"Händler A",loc:"Bregenz",ev:7},{name:"Händler B",loc:"Hard",ev:3}].map(s=>(
+            <button key={s.name} onClick={()=>go("a-coop-tasks")} style={{width:"100%",textAlign:"left",marginBottom:8,borderRadius:14,padding:"12px 14px",border:s.active?`2px solid ${RC}`:"1px solid #eee",cursor:"pointer",background:s.active?"#f8f5fa":WH,boxSizing:"border-box"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div><p style={{fontWeight:600,fontSize:13,color:"#111",margin:0}}>{s.name}</p><p style={{fontSize:11,color:"#888",margin:"2px 0 0"}}>{s.loc} · {s.ev} Events</p></div>
+                {s.active&&<span style={{background:RC,color:WH,fontSize:10,fontWeight:700,borderRadius:20,padding:"2px 10px"}}>Ausgewählt</span>}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+
+    /* ANGELINA: KOOPERATION TASKS */
+    if(screen==="a-coop-tasks") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="angelina" onBack={()=>go("a-invite")} onNotif={()=>{}} canCreate={false} onInfo={infoAct}/>
+        <div style={{padding:"10px 14px 100px"}}>
+          <p style={{fontWeight:700,fontSize:14,color:"#111",margin:"0 0 4px"}}>Tasks mit Kooperation</p>
+          <p style={{fontSize:12,color:"#888",margin:"0 0 12px"}}>Händler K wird angefragt. Sobald er bestätigt, erscheint sein Task automatisch.</p>
+          <div style={{background:WH,borderRadius:14,overflow:"hidden",marginBottom:12}}>
+            {/* Retailer task */}
+            <div style={{display:"flex",alignItems:"center",padding:"11px 14px",borderBottom:"1px solid #eee",gap:8}}>
+              <p style={{flex:1,fontSize:13,color:"#aaa",margin:0}}>Treffpunkt öffnen & bereitstellen</p>
+              <button style={{background:`${RC}15`,border:`1px solid ${RC}30`,borderRadius:20,padding:"3px 10px",fontSize:10,color:RC,fontWeight:600,cursor:"pointer",flexShrink:0}}>Händler K angefragt</button>
+            </div>
+            {/* Community tasks */}
+            {TMPLS_A.map((t,i,arr)=>{
+              const own=ownersA[t.id];
+              return(
+                <div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"11px 14px",borderBottom:i<arr.length-1?"1px solid #eee":"none"}}>
+                  <div style={{flex:1}}><p style={{fontSize:13,color:"#111",margin:0}}>{t.label}</p>{t.karma>0&&<p style={{fontSize:10,color:"#aaa",margin:"2px 0 0"}}>+{t.karma} Karma</p>}</div>
+                  <div style={{display:"flex",borderRadius:10,overflow:"hidden",border:"1px solid #ddd",flexShrink:0}}>
+                    <button onClick={()=>toggleOA(t.id)} style={{padding:"5px 10px",fontSize:11,fontWeight:700,border:"none",cursor:"pointer",background:own==="self"?HL:"#f5f5f5",color:own==="self"?"#111":"#aaa"}}>Ich</button>
+                    <button onClick={()=>toggleOA(t.id)} style={{padding:"5px 10px",fontSize:11,fontWeight:700,border:"none",cursor:"pointer",background:own==="community"?HL:"#f5f5f5",color:own==="community"?"#111":"#aaa"}}>Community</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <button onClick={()=>go("a-home-ev2")} style={{width:"100%",background:"#111",color:WH,fontWeight:600,fontSize:13,padding:"13px 0",borderRadius:12,border:"none",cursor:"pointer"}}>Event veröffentlichen</button>
+        </div>
+      </div>
+    );
+
+    /* ANGELINA: PROFIL */
+    if(screen==="profil-a") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="angelina" onFab={()=>go("a-create-1")} onNotif={()=>{}} onMsg={()=>go("k-messages")} subLabel="Community A" onSubLabel={()=>go("a-community")} onInfo={infoAct}/>
+        <div style={{padding:"10px 14px 80px"}}>
+          <div style={{background:WH,borderRadius:14,padding:"14px",marginBottom:10,display:"flex",gap:14,alignItems:"flex-start"}}>
+            <div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${CC},${RC})`,flexShrink:0}}/>
+            <div><p style={{fontWeight:700,fontSize:16,color:"#111",margin:0}}>Angelina</p><p style={{fontSize:11,color:"#888",margin:"2px 0 6px"}}>Community A · Gründerin</p><p style={{fontSize:11,color:"#666",lineHeight:1.5,margin:0}}>Organisiert Community A seit 2022. Glaubt, dass Sport Menschen verbindet.</p></div>
+          </div>
+          {/* Kundenkarte */}
+          <button onClick={()=>go("n-wallet")} style={{width:"100%",textAlign:"left",background:HL,borderRadius:18,padding:"16px 14px",marginBottom:12,border:"none",cursor:"pointer",boxSizing:"border-box"}}>
+            <p style={{fontSize:11,fontWeight:700,color:"rgba(0,0,0,0.5)",margin:"0 0 2px"}}>Kundenkarte</p>
+            <p style={{fontSize:22,fontWeight:800,color:"#111",margin:"0 0 1px"}}>312 Karma</p>
+            <p style={{fontSize:12,color:"rgba(0,0,0,0.55)",margin:"0 0 10px"}}>156,00 € Rabatt verfügbar</p>
+            <p style={{fontSize:11,color:"rgba(0,0,0,0.4)",margin:0,textAlign:"right"}}>Tippen für Barcode →</p>
+          </button>
+          {/* Badges */}
+          <Sec label="Badges"/>
+          <div style={{display:"flex",gap:8,marginBottom:14}}>
+            {[{l:"Gründerin",I:PplI,on:true},{l:"10 Events",I:CalI,on:true},{l:"50 Tasks",I:ChkI,on:false}].map(b=>(
+              <div key={b.l} style={{flex:1,background:b.on?HL:"#e8e8e8",borderRadius:12,padding:"12px 6px 8px",textAlign:"center",opacity:b.on?1:0.45}}>
+                <div style={{display:"flex",justifyContent:"center",marginBottom:5}}><b.I sz={22} c={b.on?"#111":"#888"}/></div>
+                <p style={{fontSize:9,color:b.on?"#111":"#888",margin:0,fontWeight:600,lineHeight:1.3}}>{b.l}</p>
+              </div>
+            ))}
+          </div>
+          <Sec label="Meine Events"/>
+          {A_EVENTS.map(e=>(
+            <button key={e.id} onClick={()=>go("a-event-status")} style={{width:"100%",textAlign:"left",background:WH,borderRadius:14,padding:"12px 14px",marginBottom:8,border:"none",cursor:"pointer",boxSizing:"border-box"}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                <span style={{fontSize:10,fontWeight:700,textTransform:"uppercase",color:e.retailer?RC:CC}}>{e.sport} · {e.recurring}</span>
+                {e.retailer?<span style={{fontSize:9,fontWeight:700,background:HL,borderRadius:20,padding:"1px 7px",color:"#111"}}>Karma</span>:<span style={{fontSize:9,color:"#aaa"}}>Community</span>}
+              </div>
+              <p style={{fontWeight:600,fontSize:13,color:"#111",margin:"0 0 2px"}}>{e.title}</p>
+              <p style={{fontSize:11,color:"#888",margin:0}}>{e.location} · {e.date}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+
+    /* ANGELINA: EVENT-STATUS */
+    if(screen==="a-event-status") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="angelina" onBack={()=>go("profil-a")} onNotif={()=>{}} canCreate={false} onInfo={infoAct} onMsg={()=>go("k-messages")}/>
+        <EventDetailHdr e={A_EVENTS[0]}/>
+        <div style={{padding:"8px 14px 100px"}}>
+          <Sec label="Task-Status"/>
+          <div style={{background:WH,borderRadius:14,overflow:"hidden"}}>
+            {TMPLS_A.map((t,i,arr)=>(
+              <div key={t.id} style={{display:"flex",alignItems:"center",padding:"11px 14px",borderBottom:i<arr.length-1?"1px solid #eee":"none",gap:8}}>
+                <p style={{flex:1,fontSize:13,color:"#111",margin:0}}>{t.label}</p>
+                <span style={{fontSize:10,background:"#f0f0f0",color:"#888",borderRadius:20,padding:"2px 8px"}}>Offen</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+
+    /* ANGELINA: COMMUNITY */
+    if(screen==="a-community") return(
+      <div style={{flex:1,overflowY:"auto"}}>
+        <AppHdr persona="angelina" onBack={()=>go("profil-a")} onNotif={()=>{}} canCreate={false} onInfo={infoAct} onMsg={()=>go("k-messages")}/>
+        <div style={{padding:"10px 14px 80px"}}>
+          <PhotoBanner color={CC} label="Community A" h={110}/>
+          <p style={{fontWeight:700,fontSize:18,color:"#111",margin:"0 0 2px"}}>Community A</p>
+          <p style={{fontSize:11,color:"#888",margin:"0 0 10px"}}>Gegründet von Angelina · Feldkirch · seit 2022</p>
+          <div style={{display:"flex",gap:16,padding:"10px 0",borderTop:"1px solid #bbb",borderBottom:"1px solid #bbb",marginBottom:10}}>
+            {[["27","Mitglieder"],["12","Events"]].map(([v,l])=>(
+              <div key={l}><p style={{fontWeight:700,fontSize:16,color:"#111",margin:0}}>{v}</p><p style={{fontSize:9,color:"#888",margin:"1px 0 0"}}>{l}</p></div>
+            ))}
+          </div>
+          <Sec label="Sportarten"/>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:10}}>
+            {["Laufen","Gravel","Trailrunning","Hike"].map(s=>(
+              <span key={s} style={{border:`1px solid ${CC}`,borderRadius:20,padding:"3px 10px",fontSize:11,color:CC,fontWeight:500}}>{s}</span>
+            ))}
+          </div>
+          <Sec label="Mitglieder"/>
+          <div style={{background:WH,borderRadius:14,overflow:"hidden"}}>
+            {[{n:"Angelina",role:"Gründerin",k:312},{n:"Sarah W.",role:"Mitglied",k:28},{n:"Sara M.",role:"Mitglied",k:10},{n:"Patrick K.",role:"Mitglied",k:16}].map((m,i,arr)=>(
+              <div key={m.n} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:i<arr.length-1?"1px solid #eee":"none"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:28,height:28,borderRadius:"50%",background:`linear-gradient(135deg,${CC},${RC})`}}/>
+                  <div><p style={{fontSize:13,fontWeight:500,color:"#111",margin:0}}>{m.n}</p><p style={{fontSize:10,color:m.role==="Gründerin"?CC:"#aaa",margin:"1px 0 0",fontWeight:m.role==="Gründerin"?600:400}}>{m.role}</p></div>
+                </div>
+                <span style={{fontSize:11,color:"#999"}}>{m.k} Karma</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+
+    return null;
+  }
+
+  /* ── LAYOUT ─────────────────────────────────────────────────────────────── */
+  // Target: MacBook 13.6" → ~1280×832 logical px
+  // Left 1/3 (~426px): nav panel | Right 2/3 (~854px): device centered
+
+  const isKontrolle = persona==="kuno" && screen==="k-manage";
+
+  return(
+    <div style={{height:"100vh",background:"#b0b0b0",display:"flex",overflow:"hidden",fontFamily:"'DM Sans',system-ui,sans-serif"}}>
+
+
+      {/* ── LEFT NAV PANEL — 1/3 width ── */}
+      <div style={{width:"33.333%",height:"100vh",overflowY:"auto",background:"#bbb",padding:"20px 18px",flexShrink:0}}>
+
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <span style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#777"}}>ananda · Mid-Fi</span>
+          <span style={{fontSize:10,color:"#999",fontWeight:500}}>RtD · FF2</span>
+        </div>
+
+        {/* Persona switcher */}
+        <div style={{display:"flex",borderRadius:10,overflow:"hidden",border:"1px solid #999",background:WH,marginBottom:16}}>
+          {["nora","kuno","angelina"].map((p,i)=>(
+            <button key={p} onClick={()=>swP(p)} style={{flex:1,padding:"9px 0",fontSize:12,fontWeight:700,border:"none",cursor:"pointer",borderRight:i<2?"1px solid #ccc":"none",background:persona===p?"#111":WH,color:persona===p?WH:"#999",transition:"background .15s"}}>
+              {p[0].toUpperCase()+p.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* Step navigation with groups */}
+        {(()=>{
+          const groups=[]; let lastG=null;
+          steps.forEach((s,i)=>{
+            if(s.g!==lastG){groups.push({g:s.g,steps:[]});lastG=s.g;}
+            groups[groups.length-1].steps.push({...s,_i:i});
+          });
+          return groups.map((grp,gi)=>{
+            const isKG = isKontrolle && grp.g.includes("Kontrolle");
+            return(
+              <div key={gi} style={{marginBottom:10}}>
+                <p style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.1em",color:"#999",margin:"0 0 5px"}}>{grp.g}</p>
+                <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                  {grp.steps.map((s)=>{
+                    const realTarget=s.target||s.id;
+                    const isCurr=(screen===realTarget)||(s.id===screen&&!s.alias&&!s.target);
+                    const isDone=s._i<currStep;
+                    return(
+                      <button key={s.alias||s.id+s._i} onClick={()=>go(realTarget)}
+                        style={{padding:"5px 9px",borderRadius:7,fontSize:11,fontWeight:600,border:"none",cursor:"pointer",whiteSpace:"nowrap",
+                          background:isCurr?"#111":isDone?"#999":WH,
+                          color:isCurr||isDone?WH:"#aaa"}}>
+                        {s.l}
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* Kontrolle A/B/C no longer shown inline - each is its own step */}
+              </div>
+            );
+          });
+        })()}
+      </div>
+
+      {/* ── RIGHT DEVICE AREA — 2/3 width, device centered ── */}
+      <div style={{flex:1,height:"100vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <div style={{width:340,height:710,borderRadius:40,border:"7px solid #1a1a1a",background:BG,overflow:"hidden",display:"flex",flexDirection:"column",boxShadow:"0 20px 50px rgba(0,0,0,0.45)",position:"relative",flexShrink:0}}>
+          {/* Status bar */}
+          <div style={{padding:"5px 22px 0",background:BG,flexShrink:0}}>
+            <span style={{fontSize:11,fontWeight:700,color:"#333"}}>9:41</span>
+          </div>
+          {/* Screen content */}
+          <div style={{flex:1,overflow:"hidden",display:"flex",flexDirection:"column"}}>{renderContent()}</div>
+          {/* Floating bottom nav */}
+          <div style={{position:"absolute",bottom:58,left:0,right:0,display:"flex",justifyContent:"center",pointerEvents:"none"}}>
+            <div style={{pointerEvents:"all",display:"inline-flex",background:"#111",borderRadius:22,padding:"3px",boxShadow:"0 4px 20px rgba(0,0,0,0.35)"}}>
+              {NAV.map(t=>{
+                const active=aBot===t.id;
+                return(
+                  <button key={t.id} onClick={t.fn} style={{padding:"9px 13px",border:"none",cursor:"pointer",borderRadius:18,background:active?HL:"transparent",color:active?"#111":WH,fontSize:12,fontWeight:700,whiteSpace:"nowrap"}}>
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<AnandaPrototype/>);
+</script>
+</body>
+</html>
